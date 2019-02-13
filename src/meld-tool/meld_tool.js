@@ -114,13 +114,13 @@ program.on('command:*', function () {
 });
 
 /*
- *  Supporting (non-async) functions
+ *  Supporting functions
  */
 
 function get_config() {
     // This is a placeholder, obtaining values from command line options.
     // Subsequent developments may access a configuration file
-    // and extract initial defauklt configuration from that.
+    // and extract an initial default configuration from that.
     //
     // See also: https://nodejs.org/api/process.html#process_process_env
     DATE = new Date().toISOString();
@@ -133,23 +133,21 @@ function get_config() {
 }
 
 function get_auth_token() {
+    // Returns a Promise that returns an authentication bearer token.
+    //
     // See:
     // https://github.com/solid/solid-cli/blob/master/bin/solid-bearer-token
     // https://github.com/solid/solid-cli/blob/master/src/SolidClient.js
-    const client = new SolidClient({ identityManager : new IdentityManager() });
     let usr = program.username;
     let pwd = program.password;
     let idp = program.provider;
-    let url = "http://localhost:8443/public";
-    let token = client.login(idp, {username: usr, password: pwd})
+    let url = "https://localhost:8443/profile/card";
+    let idmgr  = new IdentityManager({});
+    let client = new SolidClient({ identityManager: idmgr });
+    let token  = client.login(idp, {username: usr, password: pwd})
         .then(session => client.createToken(url, session))
         ;
     return token
-}
-
-function add_auth_bearer_token(headers, token) {
-    headers["authorization"] = "Bearer "+token;
-    return headers;
 }
 
 function show_container_data(response_data) {
@@ -205,7 +203,7 @@ function do_test_login() {
     console.log('Test login via %s as %s', program.provider, program.username);
     get_auth_token()
         .then(token => {console.log("Token %s", token)})
-        .catch(error => report_error(error.message))
+        .catch(error => "@@@"+report_error(error.message))
         ;
 }
 
@@ -228,20 +226,15 @@ function do_create_workset(ldpurl, wsname) {
         .replace("@AUTHOR",  AUTHOR)
         .replace("@CREATED", DATE)
         ;
+
     let container_data = prefixes + container_body;
     let header_data = {
         "link":         '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
         "content-type": 'text/turtle'
     }
 
-    let auth = get_auth_token()
-        .then(token => add_auth_bearer_token(header_data, token))
-        .catch(error => report_error(error.message))
-        ;
-
     //  Post to supplied LDP service URI to create container
-    let post = auth
-        .then(headers  => ldp_request.post(ldpurl, container_data, headers))
+    let p = ldp_request.post(ldpurl, container_data, header_data)
         .then(response => check_status(response.status)
         .then(response => extract_header(response, "location")))
         .catch(error => report_error(error))
