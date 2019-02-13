@@ -12,3 +12,5 @@ Possible alternative strategies (could use a combination?):
 
 3. Use environment variables.
 
+For the time being, I propose to use a combination of command line options and environment variables.
+

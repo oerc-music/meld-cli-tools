@@ -1,7 +1,29 @@
 # Command line tool(s) for accessing MELD/LDP containers
 
+## TODO
+
+- [ ] environment variables for credentials
+- [ ] finish off "create-workset" implementation
+- [ ] revisit "show-container" implementation
+- [ ] "show-workset" implementation
+- [ ] "delete-workset" implementation
+- [ ] "add-fragment" implementation
+- [ ] "show-fragment" implementation
+- [ ] "delete-fragment" implementation
+- [ ] "create-annotation-container" implementation
+- [ ] "show-annotation-container" implementation
+- [ ] "delete-annotation-container" implementation
+- [ ] "create-annotation" implementation
+- [ ] "show-annotation" implementation
+- [ ] "delete-annotation" implementation
+- [ ] default for author when creating a workset/containmer/annotation (how?)
+
+
 ## Prerequisites
 
+    npm install commander
+    npm install axios
+    npm install rdflib
     npm install @solid/cli
 
 ## `meld_tool.js`
@@ -13,6 +35,7 @@ Try:
     node meld_tool.js --help
 
 @@@
+
 In the MELD tools directory:
 
     export NODE_EXTRA_CA_CERTS=$SOLID_CERTS/localhost.crt
@@ -26,34 +49,11 @@ In the MELD tools directory:
 
 (Are any of the above exports necessary?  I think that, if they're needed, it's for running solid-server.  Maybe jusdt the first is needed?)
 
-## `meld_tool.js`
-
-@@TODO
-
-Try:
-
-    node meld_tool.js --help
-
-
-
-@@@
-In the MELD tools directory:
-
-    export NODE_EXTRA_CA_CERTS=$SOLID/certs/localhost.crt
-    export NODE_TLS_REJECT_UNAUTHORIZED=0
-    node meld_tool.js create-workset https://localhost:8443/ wstest
-
-(The second of these exports shouldn't be necessary?)
-
-
-
-
-
 ## Other notes
 
 ### Getting syntax errors?
 
-Try this:
+Try this:0
 
     . ~/.nvm/nvm.sh
     . ~/.nvm/bash_completion
