@@ -141,6 +141,14 @@ Initialize Solid (see https://github.com/solid/node-solid-server#run-a-single-us
     ? A logo that represents you, your brand, or your server (not required)
     config created on /Users/graham/solid/config.json
 
+
+### Proper `localhost` certs?
+
+See: https://blog.filippo.io/mkcert-valid-https-certificates-for-localhost/
+
+@@TODO: try this.  if it works, it might save a some messing about when creating and using a test deployment.
+
+
 ## Run solid server
 
 Start Solid:
