@@ -25,6 +25,7 @@ const IdentityManager = require('@solid/cli/src/IdentityManager');
 
 var DATE    = "@@@@current date";
 var AUTHOR  = "@@@@author name";
+var BASEPOD = "https://localhost:8443";
 var BASEURL = "https://localhost:8443/public/";
 
 /*
@@ -65,9 +66,9 @@ program.version('0.1.0')
     .usage("[options] <sub-command> [args]")
     .option("--author <author>",     "Author name of container or entry created")
     .option("--baseurl <baseurl>",   "LDP server base URL")
-    .option("--username <username>", "Username for authentication")
-    .option("--password <password>", "Password for authentication")
-    .option("--provider <provider>", "Identity provider for authentication")
+    .option("--username <username>", "Username for authentication (overrides MELD_USERNAME environment variable)")
+    .option("--password <password>", "Password for authentication (overrides MELD_PASSWORD environment variable)")
+    .option("--provider <provider>", "Identity provider for authentication (overrides MELD_IDPROVIDER environment variable)")
     // .option('-f, --foo', 'Foo')
     // .option('-b, --bar', 'Bar')
     // .option('-z, --baz [val]', 'baz [def]', 'def')
@@ -132,16 +133,13 @@ function get_config() {
     }
 }
 
-function get_auth_token() {
+function get_auth_token(usr, pwd, idp) {
     // Returns a Promise that returns an authentication bearer token.
     //
     // See:
     // https://github.com/solid/solid-cli/blob/master/bin/solid-bearer-token
     // https://github.com/solid/solid-cli/blob/master/src/SolidClient.js
-    let usr = program.username;
-    let pwd = program.password;
-    let idp = program.provider;
-    let url = "https://localhost:8443/profile/card";
+    let url = BASEPOD;
     let idmgr  = new IdentityManager({});
     let client = new SolidClient({ identityManager: idmgr });
     let token  = client.login(idp, {username: usr, password: pwd})
@@ -200,8 +198,11 @@ function do_help(cmd) {
 }
 
 function do_test_login() {
-    console.log('Test login via %s as %s', program.provider, program.username);
-    get_auth_token()
+    let usr = program.username || process.env.MELD_USERNAME   || "";
+    let pwd = program.password || process.env.MELD_PASSWORD   || "";
+    let idp = program.provider || process.env.MELD_IDPROVIDER || BASEPOD;
+    console.log('Test login via %s as %s', idp, usr);
+    get_auth_token(usr, pwd, idp)
         .then(token => {console.log("Token %s", token)})
         .catch(error => "@@@"+report_error(error.message))
         ;

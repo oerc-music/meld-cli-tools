@@ -159,13 +159,13 @@ For debug output, use:
 
     $ DEBUG=solid:* npx solid start
 
-If using a self-signecd certificate (i.e., one not trusted by the host system certificate root), use one of the following commands instead:
+If using a self-signed certificate (i.e., one not trusted by the host system certificate root), use one of the following commands instead:
 
-    $ ./node_modules/solid-server/bin/solid start
+    $ ./node_modules/solid-server/bin/solid-test start
 
 or
 
-    $ DEBUG=solid:* ./node_modules/solid-server/bin/solid start
+    $ DEBUG=solid:* ./node_modules/solid-server/bin/solid-test start
 
 (These commands suspend certificate checking by the solid server, and should not be used in production.  They are needed because it uses HTTP transactions internally for some operations.)
 
@@ -348,11 +348,6 @@ https://blog.filippo.io/mkcert-valid-https-certificates-for-localhost/
 
 
 ## Other stuff
-
-
-I'm wondering if it’s possible to save a link to a gitter entry: I think   @melvincarvalho  ’s “And show how to get from A to B.” is rather important.
-
-Ah, here it is: https://gitter.im/solid/chat?at=5c5d716028c89123cb93f683  Or  :point_up: [February 8, 2019 12:09 PM](https://gitter.im/solid/chat?at=5c5d716028c89123cb93f683)
 
 
 

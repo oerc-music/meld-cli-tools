@@ -2,7 +2,7 @@
 
 ## TODO
 
-- [ ] environment variables for credentials
+- [x] environment variables for credentials
 - [ ] finish off "create-workset" implementation
 - [ ] revisit "show-container" implementation
 - [ ] "show-workset" implementation
@@ -17,7 +17,8 @@
 - [ ] "show-annotation" implementation
 - [ ] "delete-annotation" implementation
 - [ ] default for author when creating a workset/containmer/annotation (how?)
-
+    - see environment $NAME (MacOS only?) / $USER
+    - Linux: `getent passwd "$USER" | cut -d ':' -f 5 | cut -d ',' -f 1`
 
 ## Prerequisites
 
