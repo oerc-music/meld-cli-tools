@@ -4,9 +4,10 @@
 
 - [x] environment variables for credentials
 - [ ] finish off "create-workset" implementation
-- [ ] revisit "show-container" implementation
-- [ ] "show-workset" implementation
-- [ ] "delete-workset" implementation
+- [x] revisit "show-container" implementation
+- [x] "list-container" implementation
+- [x] "show-resource" implementation
+- [x] "remove-resource" implementation
 - [ ] "add-fragment" implementation
 - [ ] "show-fragment" implementation
 - [ ] "delete-fragment" implementation
