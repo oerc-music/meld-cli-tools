@@ -14,7 +14,6 @@
 const program     = require('commander');
 const axios       = require('axios');
 const rdf         = require('rdflib');
-// const url         = require('url');
 
 // See https://github.com/jeff-zucker/solid-file-client/blob/master/lib/solid-shell-client.js
 const SolidClient     = require('@solid/cli/src/SolidClient');
@@ -28,8 +27,8 @@ const IdentityManager = require('@solid/cli/src/IdentityManager');
  * The following are default values, and should normally be overriden.
  */
 
-const LDP_BASIC_CONTAINER = "http://www.w3.org/ns/ldp#BasicContainer"
-
+const LDP_BASIC_CONTAINER = "http://www.w3.org/ns/ldp#BasicContainer";
+const LDP_RESOURCE        = "http://www.w3.org/ns/ldp#Resource";
 
 var DATE    = "(no current date)";
 var AUTHOR  = "(no username)";
@@ -57,6 +56,13 @@ var ws_template = `
         dct:created "@CREATED" .
     `;
 
+var fr_template = `
+    <> a ninre:FragmentRef , ldp:Resource ;
+      ninre:fragment <@FRAGURI> ;
+      dc:creator     "@AUTHOR";
+      dct:created    "@CREATED" .
+      `;
+
 /*
  *  Command parsers
  */
@@ -81,31 +87,31 @@ program.command("test-login")
     .action(do_test_login)
     ;
 
-program.command("list-container <container-uri>")
+program.command("list-container <container_url>")
     .alias("ls")
     .description("List contents of container to stdout.")
     .action(do_list_container)
     ;
 
-program.command("show-resource <resource-uri>")
+program.command("show-resource <resource_url>")
     .alias("sh")
     .description("Write resource content to stdout.")
     .action(do_show_resource)
     ;
 
-program.command("remove-resource <resource-uri>")
+program.command("remove-resource <resource_url>")
     .alias("rm")
     .description("Remove resource from container.")
     .action(do_remove_resource)
     ;
 
-program.command("create-workset <container-uri> <wsname>")
+program.command("create-workset <container_url> <workset_name>")
     .alias("crws")
     .description("Create working set and write URI to stdout.")
     .action(do_create_workset)
     ;
 
-program.command("add-fragment <workset-uri> <wsname>")
+program.command("add-fragment <workset_url> <fragment_url> <fragment_name>")
     .alias("adfr")
     .description("Add fragment to working set and write fragment URI to stdout.")
     .action(do_add_fragment)
@@ -314,21 +320,10 @@ function extract_header(response, name) {
 //         })
 //     ;
 
-// console.log('program %s', program);
-// if (program.foo) console.log('  --foo');
-// if (program.bar) console.log('  --bar');
-// console.log('  --baz %s', program.baz);
-
-// program.args.forEach(
-//     (val, index) => {
-//         console.log(`${index}: ${val}`);
-//         }
-//     );
-
 function do_help(cmd) {
     let helptext = [
-        "meld-tool create-workset  <ldpurl> <wsname>",
-        "meld-tool add-fragment <wsuri> <fruri>",
+        "meld-tool create-workset  <container_url> <workset_name>",
+        "meld-tool add-fragment <workset_url> <fragment_url> <fragment_name>",
         // "",
         // "",
     ];
@@ -358,7 +353,6 @@ function do_list_container(container_uri) {
         .catch(error   => report_error(error))
         ;
 }
-
 
 function do_show_resource(container_uri) {
     get_config();
@@ -393,8 +387,8 @@ function do_create_workset(parent_url, wsname) {
         ;
     let container_data = prefixes + container_body;
     let header_data = {
-        "link":         `<${LDP_BASIC_CONTAINER}>; rel="type"`,
         "content-type": 'text/turtle',
+        "link":         `<${LDP_BASIC_CONTAINER}>; rel="type"`,
         "slug":         wsname,
     }
     if (program.verbose) {
@@ -404,7 +398,7 @@ function do_create_workset(parent_url, wsname) {
         console.log(container_data);
     }
     //  Post to supplied LDP container URI to create container
-    let p = get_auth_token(...get_auth_params())
+    get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).post(
             parent_url, container_data, {"headers": header_data}
             ))
@@ -417,9 +411,45 @@ function do_create_workset(parent_url, wsname) {
         ;
 }
 
-function do_add_fragment(wsuri, fruri) {
+function do_add_fragment(workset_url, fragment_url, fragment_name) {
     get_config();
-    console.error('Add fragment %s in workset %s', fruri, wsuri);
+    console.error(
+        'Add fragment %s as %s in workset %s', 
+        fragment_url, fragment_name, workset_url
+        );
+
+    //  Assemble workset container data
+    let fragment_uri  = new URL(fragment_url, BASEURL).toString();
+    let fragment_body = fr_template
+        .replace("@FRAGURI", fragment_url)
+        .replace("@AUTHOR",  AUTHOR)
+        .replace("@CREATED", DATE)
+        ;
+    let fragment_data = prefixes + fragment_body;
+    let header_data = {
+        "content-type": 'text/turtle',
+        "link":         `<${LDP_RESOURCE}>; rel="type"`,
+        "slug":         fragment_name,
+    }
+    if (program.verbose) {
+        console.log("Header_data:");
+        console.log(header_data);
+        console.log("Fragment_data:");
+        console.log(fragment_data);
+    }
+    //  Post to supplied LDP container URI to create container
+    //  @@TODO: factor out common code with `do_create_workset`
+    get_auth_token(...get_auth_params())
+        .then(token    => ldp_request(token).post(
+            workset_url, fragment_data, {"headers": header_data}
+            ))
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => extract_header(response, "location"))
+        .then(location => console_debug("Created fragment %s", location))
+        .then(location => console.log(location))
+        .catch(error => (error))
+        ;
 }
 
 function runmain(argv) {

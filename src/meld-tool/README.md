@@ -3,21 +3,23 @@
 ## TODO
 
 - [x] environment variables for credentials
-- [ ] finish off "create-workset" implementation
+- [x] finish off "create-workset" implementation
 - [x] revisit "show-container" implementation
 - [x] "list-container" implementation
+- [ ] refactor "create-workset"/"add-resource" common code
+- [ ] "add-resource" implentation
 - [x] "show-resource" implementation
 - [x] "remove-resource" implementation
-- [ ] "add-fragment" implementation
-- [ ] "show-fragment" implementation
-- [ ] "delete-fragment" implementation
+- [x] "add-fragment" implementation
+
 - [ ] "create-annotation-container" implementation
 - [ ] "show-annotation-container" implementation
 - [ ] "delete-annotation-container" implementation
 - [ ] "create-annotation" implementation
 - [ ] "show-annotation" implementation
 - [ ] "delete-annotation" implementation
-- [ ] default for author when creating a workset/containmer/annotation (how?)
+
+- [ ] default for author when creating a workset/container/annotation (how?)
     - see environment $NAME (MacOS only?) / $USER
     - Linux: `getent passwd "$USER" | cut -d ':' -f 5 | cut -d ',' -f 1`
 
@@ -49,7 +51,12 @@ In the MELD tools directory:
 
     node meld_tool.js create-workset https://localhost:8443/ wstest
 
-(Are any of the above exports necessary?  I think that, if they're needed, it's for running solid-server.  Maybe jusdt the first is needed?)
+(Are any of the above exports necessary?  I think that, if they're needed, it's for running solid-server.  Maybe just the first is needed?)
+
+
+
+
+
 
 ## Other notes
 
