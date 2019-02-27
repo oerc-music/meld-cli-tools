@@ -42,10 +42,11 @@ var BASEURL = "https://localhost:8443/";    // May be overriden from command lin
 var prefixes = `
     @prefix ldp: <http://www.w3.org/ns/ldp#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    @prefix mo: <http://purl.org/ontology/mo/> .
-    @prefix frbr: <http://purl.org/vocab/frbr/core#> .
     @prefix dc: <http://purl.org/dc/elements/> .
     @prefix dct: <http://purl.org/dc/terms/> .
+    @prefix oa: <http://www.w3.org/ns/oa#> .
+    @prefix mo: <http://purl.org/ontology/mo/> .
+    @prefix frbr: <http://purl.org/vocab/frbr/core#> .
     @prefix nin: <http://numbersintonotes.net/terms#> .
     @prefix ninre: <http://remix.numbersintonotes.net/vocab#> .
     `;
@@ -61,6 +62,13 @@ var fr_template = `
       ninre:fragment <@FRAGURI> ;
       dc:creator     "@AUTHOR";
       dct:created    "@CREATED" .
+      `;
+
+var an_template = `
+    <> a oa:Annotation ;
+      oa:hasTarget   <@TARGETURI> ;
+      oa:hasBody     <@BODYURI> ;
+      oa:motivatedBy <@MOTIVATION> .
       `;
 
 /*
@@ -115,6 +123,12 @@ program.command("add-fragment <workset_url> <fragment_url> <fragment_name>")
     .alias("adfr")
     .description("Add fragment to working set and write fragment URI to stdout.")
     .action(do_add_fragment)
+    ;
+
+program.command("add-annotation <container_url> <target> <body> <motivation>")
+    .alias("adan")
+    .description("Add annotation to a container, and write allocated URI to stdout.")
+    .action(do_add_annotation)
     ;
 
 // error on unknown commands
@@ -280,7 +294,7 @@ function report_error(error) {
             console.error("Attempt to remove non-empty container?");
         } else if ( [301,302,303,307].includes(error.response.status) ) {
             console.error("Redirect to %s", error.response.headers["location"]);
-        // Dump request/response headets for others
+        // Dump request/response headers for others
         } else {
             console.error("Request header:");
             console.error(error.request._header);
@@ -311,6 +325,21 @@ function check_status(response) {
 
 function extract_header(response, name) {
     return response.headers[name];
+}
+
+function url_slug(url, default_val) {
+    // Extract short identifier from a URI.
+    // This is assumed to be in the final non-empty path segment.
+    const pathsegs = new URL(url, BASEURL).pathname.split('/');
+    let filestem = "";
+    while (filestem === "" && pathsegs !== []) {
+            let filename = pathsegs.pop();
+            filestem = filename.split(".")[0];
+        }
+    if (filestem === "") {
+        filestem = default_val;
+    }
+    return filestem;
 }
 
 // program.command("*")
@@ -377,6 +406,36 @@ function do_remove_resource(resource_uri) {
         ;
 }
 
+function create_resource(container_url, headers, resource_data) {
+    // Crerate resource inb specified container
+    //
+    // container_url    URL of container
+    // headers          Object with headers to include in POST request.
+    //                  Notably, specifies content-type, slug and type
+    //                  link for new resource
+    // resource_data    Data reprtesenting resource to be added.
+    // 
+    // Returns a promise for the location (URL) of the created resource
+    //
+    if (program.verbose) {
+        console.log("post_data: headers:");
+        console.log(headers);
+        console.log("post_data: resource_data:");
+        console.log(resource_data);
+    }
+    //  Post to supplied LDP container URI to create container
+    let p = get_auth_token(...get_auth_params())
+        .then(token    => ldp_request(token).post(
+            container_url, resource_data, {"headers": headers}
+            ))
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => extract_header(response, "location"))
+        .then(location => console_debug("post_data: created %s", location))
+        ;
+    return p;
+}
+
 function do_create_workset(parent_url, wsname) {
     get_config();
     console.error('Create workset %s in container %s', wsname, parent_url);
@@ -391,23 +450,9 @@ function do_create_workset(parent_url, wsname) {
         "link":         `<${LDP_BASIC_CONTAINER}>; rel="type"`,
         "slug":         wsname,
     }
-    if (program.verbose) {
-        console.log("header_data:");
-        console.log(header_data);
-        console.log("container_data:");
-        console.log(container_data);
-    }
-    //  Post to supplied LDP container URI to create container
-    get_auth_token(...get_auth_params())
-        .then(token    => ldp_request(token).post(
-            parent_url, container_data, {"headers": header_data}
-            ))
-        .then(response => show_response_status(response))
-        .then(response => check_status(response))
-        .then(response => extract_header(response, "location"))
-        .then(location => console_debug("Created workset %s", location))
+    create_resource(parent_url, header_data, container_data)
         .then(location => console.log(location))
-        .catch(error => (error))
+        .catch(error => report_error(error))
         ;
 }
 
@@ -431,24 +476,38 @@ function do_add_fragment(workset_url, fragment_url, fragment_name) {
         "link":         `<${LDP_RESOURCE}>; rel="type"`,
         "slug":         fragment_name,
     }
-    if (program.verbose) {
-        console.log("Header_data:");
-        console.log(header_data);
-        console.log("Fragment_data:");
-        console.log(fragment_data);
-    }
-    //  Post to supplied LDP container URI to create container
-    //  @@TODO: factor out common code with `do_create_workset`
-    get_auth_token(...get_auth_params())
-        .then(token    => ldp_request(token).post(
-            workset_url, fragment_data, {"headers": header_data}
-            ))
-        .then(response => show_response_status(response))
-        .then(response => check_status(response))
-        .then(response => extract_header(response, "location"))
-        .then(location => console_debug("Created fragment %s", location))
+    create_resource(workset_url, header_data, fragment_data)
         .then(location => console.log(location))
-        .catch(error => (error))
+        .catch(error => report_error(error))
+        ;
+}
+
+function do_add_annotation(container_url, target_uri, body_uri, motivation) {
+    get_config();
+    console.error(
+        'Add %s annotation %s -> %s in container %s', 
+        motivation, target_uri, body_uri, container_url
+        );
+    //  Assemble annotation data
+    let annotation_ref  = 
+        url_slug(target_uri, "@target")     + "." + 
+        url_slug(motivation, "@motivation") + "." + 
+        url_slug(body_uri,   "@body");
+    let annotation_url  = new URL(annotation_ref, BASEURL).toString();
+    let annotation_body = an_template
+        .replace("@TARGETURI",  target_uri)
+        .replace("@BODYURI",    body_uri)
+        .replace("@MOTIVATION", motivation)
+        ;
+    let annotation_data = prefixes + annotation_body;
+    let header_data = {
+        "content-type": 'text/turtle',
+        "link":         `<${LDP_RESOURCE}>; rel="type"`,
+        "slug":         annotation_ref,
+    }
+    create_resource(container_url, header_data, annotation_data)
+        .then(location => console.log(location))
+        .catch(error => report_error(error))
         ;
 }
 

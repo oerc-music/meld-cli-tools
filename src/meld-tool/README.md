@@ -6,7 +6,7 @@
 - [x] finish off "create-workset" implementation
 - [x] revisit "show-container" implementation
 - [x] "list-container" implementation
-- [ ] refactor "create-workset"/"add-resource" common code
+- [ ] complete refactoring of "create-workset"/"add-fragment" common code
 - [ ] "add-resource" implentation
 - [x] "show-resource" implementation
 - [x] "remove-resource" implementation
@@ -18,6 +18,8 @@
 - [ ] "create-annotation" implementation
 - [ ] "show-annotation" implementation
 - [ ] "delete-annotation" implementation
+
+- [ ] Test suite
 
 - [ ] default for author when creating a workset/container/annotation (how?)
     - see environment $NAME (MacOS only?) / $USER

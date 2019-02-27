@@ -300,10 +300,6 @@ At this point, console log looks like this:
     * Connection #0 to host localhost left intact
 
 
-
-
-
-
 ## Check out meld-tool
 
 @@@@@
@@ -319,8 +315,6 @@ I found I also needed:
         --username=gklyne --password=****
 
 @@@@ add url to command line?
-
-
 
 
 ## WebID authentication
