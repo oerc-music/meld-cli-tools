@@ -14,8 +14,11 @@ node meld_tool.js list-container ${CONTAINER_URL}
 
 node meld_tool.js show-resource ${ANNOTATION_URL}
 
-# node meld_tool.js test-resource ${ANNOTATION_URL} <<EOF
-# annotation resource data
-# EOF
+node meld_tool.js test-text-resource ${ANNOTATION_URL} - <<EOF
+    <> a oa:Annotation ;
+      oa:hasTarget   <test-target> ;
+      oa:hasBody     <test-body> ;
+      oa:motivatedBy <test-motivation> .
+EOF
 
 # End.

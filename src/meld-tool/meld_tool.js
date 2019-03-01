@@ -14,10 +14,33 @@
 const program     = require('commander');
 const axios       = require('axios');
 const rdf         = require('rdflib');
+const stream      = require('stream');
+
 
 // See https://github.com/jeff-zucker/solid-file-client/blob/master/lib/solid-shell-client.js
 const SolidClient     = require('@solid/cli/src/SolidClient');
 const IdentityManager = require('@solid/cli/src/IdentityManager');
+
+
+//  ===================================================================
+//
+//  Various constant values
+//
+//  ===================================================================
+
+const LDP_BASIC_CONTAINER = "http://www.w3.org/ns/ldp#BasicContainer";
+const LDP_RESOURCE        = "http://www.w3.org/ns/ldp#Resource";
+
+// https://stackoverflow.com/questions/1101957/are-there-any-standard-exit-status-codes-in-linux
+const EXIT_SUCCESS      = 0;    // Success
+const EXIT_GENERAL_FAIL = 1;    // Unspecified error
+const EXIT_COMMAND_ERR  = 2;    // Command usage error
+const EXIT_NOT_FOUND    = 3;    // HTTP 404, etc.
+const EXIT_PERMISSION   = 4;    // No permission for operation
+const EXIT_REDIRECT     = 5;    // Redirect
+                                //
+const EXIT_HTTP_ERR     = 9;    // Other HTTP failure codes
+const EXIT_CONTENT      = 10;   // No content match (test case failure)
 
 /*
  * Use process.env for environment variables.
@@ -27,17 +50,17 @@ const IdentityManager = require('@solid/cli/src/IdentityManager');
  * The following are default values, and should normally be overriden.
  */
 
-const LDP_BASIC_CONTAINER = "http://www.w3.org/ns/ldp#BasicContainer";
-const LDP_RESOURCE        = "http://www.w3.org/ns/ldp#Resource";
-
 var DATE    = "(no current date)";
 var AUTHOR  = "(no username)";
 var BASEPOD = "https://localhost:8443/";
 var BASEURL = "https://localhost:8443/";    // May be overriden from command line
 
-/*
- *  Data for creating containers, etc.
- */
+
+//  ===================================================================
+//
+//  Data for creating containers and other resources
+//
+//  ===================================================================
 
 var prefixes = `
     @prefix ldp: <http://www.w3.org/ns/ldp#> .
@@ -71,9 +94,12 @@ var an_template = `
       oa:motivatedBy <@MOTIVATION> .
       `;
 
-/*
- *  Command parsers
- */
+
+//  ===================================================================
+//
+//  Command line parse and dispatch specification
+//
+//  ===================================================================
 
 program.version('0.1.0')
     .usage("[options] <sub-command> [args]")
@@ -82,6 +108,10 @@ program.version('0.1.0')
     .option("-u, --username <username>", "Username for authentication (overrides MELD_USERNAME environment variable)")
     .option("-p, --password <password>", "Password for authentication (overrides MELD_PASSWORD environment variable)")
     .option("-i, --provider <provider>", "Identity provider for authentication (overrides MELD_IDPROVIDER environment variable)")
+    .option("-l, --literal <data>",      
+        "Provide data literal(s) as alternative to input",
+        collect_multiple, []
+        )
     .option("-d, --debug",               "Generate additional progress or diagnostic output to stderr")
     .option("-v, --verbose",             "Generate more verbose output to stdout")
     // .option('-z, --baz [val]', 'baz [def]', 'def')
@@ -89,10 +119,6 @@ program.version('0.1.0')
 
 program.command("help [cmd]")
     .action(do_help)
-    ;
-
-program.command("test-login")
-    .action(do_test_login)
     ;
 
 program.command("list-container <container_url>")
@@ -131,18 +157,44 @@ program.command("add-annotation <container_url> <target> <body> <motivation>")
     .action(do_add_annotation)
     ;
 
+program.command("test-login")
+    .description("Test login credentials and return access token.")
+    .action(do_test_login)
+    ;
+
+program.command("test-text-resource <resource_url> [data_ref]")
+    .description("Test resource contains text in data (or --literal value).")
+    .action(do_test_text_resource)
+    ;
+
+// program.command("*")
+//     .action( (cmd, ...args) => {
+//             console.log("Unrecognized command %s", cmd);
+//             console.log("Args %s", args);
+//         })
+//     ;
+
 // error on unknown commands
 program.on('command:*', function () {
     console.error(
         'Invalid command: %s\nSee --help for a list of available commands.', 
         program.args.join(' ')
         );
-    process.exit(1);
+    process.exit(EXIT_COMMAND_ERR);
 });
 
-/*
- *  Supporting functions
- */
+function collect_multiple(val, option_vals) {
+  option_vals.push(val);
+  return option_vals;
+}
+
+
+
+//  ===================================================================
+//
+//  Various supporting functions
+//
+//  ===================================================================
 
 function get_config() {
     // This is a placeholder, obtaining values from command line options.
@@ -165,6 +217,62 @@ function get_auth_params() {
     let pwd = program.password || process.env.MELD_PASSWORD   || "";
     let idp = program.provider || process.env.MELD_IDPROVIDER || BASEPOD;
     return [usr, pwd, idp];    
+}
+
+function get_stream_data(data_stream) {
+    // Return promise with all data from stream
+    //
+    // See: https://stackoverflow.com/questions/51108976/
+    return new Promise((f_resolve, f_reject) => {
+        let chunks = [];
+        data_stream.on('readable', 
+            () => {
+                let chunk = data_stream.read();
+                // Nopte: nonew readable until `null` seen
+                while (chunk !== null) {
+                    chunks.push(chunk);
+                    chunk = data_stream.read();
+                } 
+            });
+        data_stream.on('end',
+            () => {
+                // All data seen: join and return concatenated chunks
+                // (assuming more efficient to do concatenation all at once)
+                f_resolve(Buffer.concat(chunks).toString());
+            });
+    })
+}
+
+function get_data(data_ref, content_type) {
+    // Retrieve data refererenced by command line argument, and 
+    // returns data as promise.
+    //
+    // "-" indicates data should be returned from stdin, otherwise is
+    // URL for accessing required data.
+    let stream_data = null;
+    if (Array.isArray(program.literal) && (program.literal.length !== 0)) {
+        let inputstream = new stream.Readable();
+        program.literal.forEach(item => inputstream.push(item+"\n"));
+        inputstream.push(null);  // No more data
+        stream_data = get_stream_data(inputstream);
+    } else if (data_ref === "-") {
+        stream_data = get_stream_data(process.stdin);
+    } else {
+        // See: https://github.com/axios/axios#axios-api
+        let data_url = new URL(data_ref, BASEURL);
+        let axios_config = {
+            method:         'get',
+            url:            String(data_url),
+            responseType:   'stream'
+        }
+        if (content_type) {
+            axios_config["headers"] = { "Accept": content_type };
+        }
+        stream_data = axios(axios_config)
+            .then(response => get_stream_data(response.data))
+            ;
+    }
+    return stream_data;
 }
 
 function get_auth_token(usr, pwd, idp) {
@@ -243,7 +351,7 @@ function show_response_status(response){
 }
 
 function show_response_data(response) {
-    console.error(response.data);
+    console.log(response.data);
     return response;    
 }
 
@@ -272,12 +380,8 @@ function show_container_contents(response, container_url) {
 }
 
 function console_debug(message, value) {
-    // If debug mode selected, logs an errort to the console using the 
-    // supplied message and promised value.  Then returns the value for 
-    // the next asynchronous handler
-    //
-    // See also: 
-    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/then
+    // If debug mode selected, logs an error to the console using the 
+    // supplied message and value.  Returns the value for the next handler.
     if (program.debug) {
         console.error(message, value);
     }
@@ -285,15 +389,21 @@ function console_debug(message, value) {
 }
 
 function report_error(error) {
+    // Reports an error and returns an exit status value
+    let status = EXIT_GENERAL_FAIL;
     if (error.response) {
         // Request errors:
         // Short summary for common cases
         console.error(error.response.status+": "+error.response.statusText);
-        if ( [401,402,403,404].includes(error.response.status) ) {
+        if ( error.response.status == 404 ) {
+            status = EXIT_NOT_FOUND;
+        } else if ( [401,402,403].includes(error.response.status) ) {
+            status = EXIT_PERMISSION;
         } else if ( error.response.status === 409 ) {
             console.error("Attempt to remove non-empty container?");
         } else if ( [301,302,303,307].includes(error.response.status) ) {
             console.error("Redirect to %s", error.response.headers["location"]);
+            status = EXIT_REDIRECT;
         // Dump request/response headers for others
         } else {
             console.error("Request header:");
@@ -301,20 +411,19 @@ function report_error(error) {
             console.error("Response header fields:");
             console.error(error.response.headers);
             }
+        status = EXIT_HTTP_ERR;
     } else {
-        // General error: print namne and message
+        // General error: print name and message
         console.error(error.name+": "+error.message);
-        if (program.debug) {
-            // This might just be too much information...
-            console.error(error);
-        }
+        // This might just be too much information...
+        console_debug(error);
     }
-    if (program.debug) {
-        console.error(error.stack);
-    }
+    console_debug(error.stack);
+    return status;
 }
 
 function check_status(response) {
+    // Check HTTP response status; return response or throw error
     let status = response.status;
     if ( (status < 200) || (status >= 300) )
     {
@@ -342,12 +451,43 @@ function url_slug(url, default_val) {
     return filestem;
 }
 
-// program.command("*")
-//     .action( (cmd, ...args) => {
-//             console.log("Unrecognized command %s", cmd);
-//             console.log("Args %s", args);
-//         })
-//     ;
+function normalize_whitespace(text) {
+    return text.replace(/\s+/g," ").trim()
+}
+
+function test_data_contains_text(data, text) {
+    console_debug("Expect data:\n%s\n----", text);
+    let datalines   = data.split(/[\r\n]+/g).map(normalize_whitespace);
+    let expectlines = text.split(/[\r\n]+/g).map(normalize_whitespace);
+    let status = EXIT_SUCCESS;
+    for (var expect of expectlines) {
+        if (expect !== "") {
+            if ( !datalines.includes(expect) ) {
+                console.error("Line '%s' not found", expect);
+                status = EXIT_CONTENT;
+            } else {
+                console_debug("Line '%s' found", expect);
+            }
+        }
+    }
+    return status;
+}
+
+function test_response_data_text(response, data_ref) {
+    // Test response includes specified data
+    // Returns promise of exit status code
+    let p = get_data(data_ref)
+        .then(text => test_data_contains_text(response.data, text))
+        .then(status => console.error("Exit status: "+status))
+        ;
+    return p; 
+}
+
+//  ===================================================================
+//
+//  Command-dispatch functions
+//
+//  ===================================================================
 
 function do_help(cmd) {
     let helptext = [
@@ -362,18 +502,21 @@ function do_help(cmd) {
 }
 
 function do_test_login() {
+    let status = EXIT_SUCCESS;
     get_config();
     let [usr, pwd, idp] = get_auth_params();
     console.error('Test login via %s as %s', idp, usr);
     get_auth_token(usr, pwd, idp)
         .then(token => {console.log("Token %s", token)})
         .catch(error => report_error(error.message))
+            .then(errsts => status = errsts)
         ;
+    return status;
 }
 
 function do_list_container(container_uri) {
     get_config();
-    console.error('list container %s', container_uri);
+    console.error('List container %s', container_uri);
     get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).get(container_uri)) 
         .then(response => show_response_status(response))
@@ -385,7 +528,7 @@ function do_list_container(container_uri) {
 
 function do_show_resource(container_uri) {
     get_config();
-    console.error('show resource %s', container_uri);
+    console.error('Show resource %s', container_uri);
     get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).get(container_uri)) 
         .then(response => show_response_status(response))
@@ -405,6 +548,35 @@ function do_remove_resource(resource_uri) {
         .catch(error => report_error(error))
         ;
 }
+
+function do_test_text_resource(resource_url, data_ref) {
+    // Tests that the indicated resource is retrievable as text,
+    // and that it contains all the specified lines of text.
+    get_config();
+    console.error('Test resource %s', resource_url);
+    let status = get_auth_token(...get_auth_params())
+        .then(token    => ldp_request(token).get(resource_url)) 
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => test_response_data_text(response, data_ref))
+        .catch(error => report_error(error))
+        ;
+    return status;
+}
+
+// function do_test_rdf_resource(container_uri, rdf_data) {
+//     // Tests that the indicated resource is retrievable as RDF (Turtle)
+//     // and that the content contains all the specified triples
+//     get_config();
+//     console.error('show resource %s', container_uri);
+//     get_auth_token(...get_auth_params())
+//         .then(token    => ldp_request(token).get(container_uri)) 
+//         .then(response => show_response_status(response))
+//         .then(response => check_status(response))
+//         .then(response => test_response_data_rdf(response, rdf_data))
+//         .catch(error => report_error(error))
+//         ;
+// }
 
 function create_resource(container_url, headers, resource_data) {
     // Crerate resource inb specified container
@@ -510,6 +682,13 @@ function do_add_annotation(container_url, target_uri, body_uri, motivation) {
         .catch(error => report_error(error))
         ;
 }
+
+
+//  ===================================================================
+//
+//  Main program: analyze and dispatch command line
+//
+//  ===================================================================
 
 function runmain(argv) {
     program.parse(argv);

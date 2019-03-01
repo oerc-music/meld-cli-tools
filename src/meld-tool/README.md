@@ -6,20 +6,24 @@
 - [x] finish off "create-workset" implementation
 - [x] revisit "show-container" implementation
 - [x] "list-container" implementation
-- [ ] complete refactoring of "create-workset"/"add-fragment" common code
+- [x] complete refactoring of "create-workset"/"add-fragment" common code
 - [ ] "add-resource" implentation
 - [x] "show-resource" implementation
 - [x] "remove-resource" implementation
 - [x] "add-fragment" implementation
 
-- [ ] "create-annotation-container" implementation
+- [x] "test-text-resource" implementation
+- [ ] "test-rdf-resource" implementation
+- [ ] "test-is-container" implemenation
+
+- [x] "create-annotation-container" implementation
 - [ ] "show-annotation-container" implementation
 - [ ] "delete-annotation-container" implementation
 - [ ] "create-annotation" implementation
 - [ ] "show-annotation" implementation
 - [ ] "delete-annotation" implementation
 
-- [ ] Test suite
+- [.] Test suite
 
 - [ ] default for author when creating a workset/container/annotation (how?)
     - see environment $NAME (MacOS only?) / $USER
