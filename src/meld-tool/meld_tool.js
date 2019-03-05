@@ -21,7 +21,6 @@ const stream      = require('stream');
 const SolidClient     = require('@solid/cli/src/SolidClient');
 const IdentityManager = require('@solid/cli/src/IdentityManager');
 
-
 //  ===================================================================
 //
 //  Various constant values
@@ -50,11 +49,11 @@ const EXIT_CONTENT      = 10;   // No content match (test case failure)
  * The following are default values, and should normally be overriden.
  */
 
-var DATE    = "(no current date)";
-var AUTHOR  = "(no username)";
-var BASEPOD = "https://localhost:8443/";
-var BASEURL = "https://localhost:8443/";    // May be overriden from command line
-
+var DATE     = "(no current date)";
+var AUTHOR   = "(no username)";
+var BASEPOD  = "https://localhost:8443/";
+var BASEURL  = "https://localhost:8443/";               // May be overriden from command line
+var STDINURL = "http://currentprocess.localhost/stdin"  // May be overriden from command line
 
 //  ===================================================================
 //
@@ -105,6 +104,7 @@ program.version('0.1.0')
     .usage("[options] <sub-command> [args]")
     .option("-a, --author <author>",     "Author name of container or entry created")
     .option("-b, --baseurl <baseurl>",   "LDP server base URL")
+    .option("-s, --stdinurl <stdinurl>", "Standard input data base URL")
     .option("-u, --username <username>", "Username for authentication (overrides MELD_USERNAME environment variable)")
     .option("-p, --password <password>", "Password for authentication (overrides MELD_PASSWORD environment variable)")
     .option("-i, --provider <provider>", "Identity provider for authentication (overrides MELD_IDPROVIDER environment variable)")
@@ -119,6 +119,11 @@ program.version('0.1.0')
 
 program.command("help [cmd]")
     .action(do_help)
+    ;
+
+program.command("full-url")
+    .description("Write fully qualified URL to stdout.")
+    .action(do_full_url)
     ;
 
 program.command("list-container <container_url>")
@@ -162,9 +167,14 @@ program.command("test-login")
     .action(do_test_login)
     ;
 
-program.command("test-text-resource <resource_url> [data_ref]")
-    .description("Test resource contains text in data (or --literal value).")
+program.command("test-text-resource <resource_url> [expect_ref]")
+    .description("Test resource contains text in data (or --literal values).")
     .action(do_test_text_resource)
+    ;
+
+program.command("test-rdf-resource <resource_url> [expect_ref]")
+    .description("Test resource contains RDF statements (or --literal values).")
+    .action(do_test_rdf_resource)
     ;
 
 // program.command("*")
@@ -204,10 +214,13 @@ function get_config() {
     // See also: https://nodejs.org/api/process.html#process_process_env
     DATE = new Date().toISOString();
     if (program.author) {
-        AUTHOR  = program.author;
+        AUTHOR   = program.author;
     } 
     if (program.baseurl) {
         BASEURL  = program.baseurl;
+    }
+    if (program.stdinurl) {
+        STDINURL = program.stdinurl;
     }
 }
 
@@ -217,6 +230,13 @@ function get_auth_params() {
     let pwd = program.password || process.env.MELD_PASSWORD   || "";
     let idp = program.provider || process.env.MELD_IDPROVIDER || BASEPOD;
     return [usr, pwd, idp];    
+}
+
+function parse_rdf(stream_data, content_type, base_url) {
+    // Returns RDF graph for supplied data stream and contebnt type
+    let graph = rdf.graph()
+    rdf.parse(stream_data, graph, base_url, content_type);
+    return graph;
 }
 
 function get_stream_data(data_stream) {
@@ -243,9 +263,19 @@ function get_stream_data(data_stream) {
     })
 }
 
-function get_data(data_ref, content_type) {
+function get_data_url(data_ref, base_url) {
+    if ( !base_url ) {
+        base_url = BASEURL;
+    }
+    if (data_ref == "-") {
+        return String(new URL(STDINURL, base_url));
+    }
+    return String(new URL(data_ref, base_url));
+}
+
+function get_data_sequence(data_ref, content_type) {
     // Retrieve data refererenced by command line argument, and 
-    // returns data as promise.
+    // returns promise of data as byte or character sequence.
     //
     // "-" indicates data should be returned from stdin, otherwise is
     // URL for accessing required data.
@@ -259,10 +289,10 @@ function get_data(data_ref, content_type) {
         stream_data = get_stream_data(process.stdin);
     } else {
         // See: https://github.com/axios/axios#axios-api
-        let data_url = new URL(data_ref, BASEURL);
+        let data_url     = get_data_url(data_ref);
         let axios_config = {
             method:         'get',
-            url:            String(data_url),
+            url:            data_url,
             responseType:   'stream'
         }
         if (content_type) {
@@ -273,6 +303,12 @@ function get_data(data_ref, content_type) {
             ;
     }
     return stream_data;
+}
+
+function get_data_graph(data_ref, data_url, content_type) {
+    let p = get_data_sequence(data_ref, content_type)
+        .then(stream_data => parse_rdf(stream_data, content_type, data_url));
+    return p;
 }
 
 function get_auth_token(usr, pwd, idp) {
@@ -363,9 +399,9 @@ function get_node_URI(node) {
     return undefined
 }
 
-function show_container_contents(response, container_url) {
+function show_container_contents(response, container_ref) {
     // console.log(response.data);
-    let container_uri   = new URL(container_url, BASEURL).toString();
+    let container_uri   = get_data_url(container_ref);
     let container_graph = rdf.graph()
     rdf.parse(response.data, container_graph, container_uri, response.headers["content-type"])
     let container_contents = container_graph.each(
@@ -377,6 +413,36 @@ function show_container_contents(response, container_url) {
         console.log(uri)
     })
     return response;    
+}
+
+function create_resource(container_url, headers, resource_data) {
+    // Create resource inb specified container
+    //
+    // container_url    URL of container
+    // headers          Object with headers to include in POST request.
+    //                  Notably, specifies content-type, slug and type
+    //                  link for new resource
+    // resource_data    Data reprtesenting resource to be added.
+    // 
+    // Returns a promise for the location (URL) of the created resource
+    //
+    if (program.verbose) {
+        console.log("post_data: headers:");
+        console.log(headers);
+        console.log("post_data: resource_data:");
+        console.log(resource_data);
+    }
+    //  Post to supplied LDP container URI to create container
+    let p = get_auth_token(...get_auth_params())
+        .then(token    => ldp_request(token).post(
+            container_url, resource_data, {"headers": headers}
+            ))
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => extract_header(response, "location"))
+        .then(location => console_debug("post_data: created %s", location))
+        ;
+    return p;
 }
 
 function console_debug(message, value) {
@@ -457,12 +523,12 @@ function normalize_whitespace(text) {
 
 function test_data_contains_text(data, text) {
     console_debug("Expect data:\n%s\n----", text);
-    let datalines   = data.split(/[\r\n]+/g).map(normalize_whitespace);
-    let expectlines = text.split(/[\r\n]+/g).map(normalize_whitespace);
+    let actual_lines   = data.split(/[\r\n]+/g).map(normalize_whitespace);
+    let expect_lines = text.split(/[\r\n]+/g).map(normalize_whitespace);
     let status = EXIT_SUCCESS;
-    for (var expect of expectlines) {
+    for (var expect of expect_lines) {
         if (expect !== "") {
-            if ( !datalines.includes(expect) ) {
+            if ( !actual_lines.includes(expect) ) {
                 console.error("Line '%s' not found", expect);
                 status = EXIT_CONTENT;
             } else {
@@ -473,12 +539,52 @@ function test_data_contains_text(data, text) {
     return status;
 }
 
+function test_data_contains_rdf(data, data_url, content_type, expect_graph, expect_url) {
+    //  Tests if each statement of `expect_graph` is present in `actual_graph`.
+    //  Reports an error and returns a non-success status if any is not found.
+    console_debug("---- Expect graph: url %s", expect_url);
+    console_debug("\n%s\n----", 
+        rdf.serialize(undefined, expect_graph, expect_url, 'text/turtle')
+        );
+    let status       = EXIT_SUCCESS;
+    let actual_graph = parse_rdf(data, content_type, data_url);
+    console_debug("---- Actual graph: url %s", data_url);
+    console_debug("\n%s\n----", 
+        rdf.serialize(undefined, actual_graph, data_url, 'text/turtle')
+        );
+    for (var st of expect_graph.match()) {
+        let st_found = actual_graph.match(st.subject, st.predicate, st.object, st.why);
+        if (!st_found.length) {
+            console.error("Statement '%s' not found", st.toString());
+            status = EXIT_CONTENT;
+        } else {
+            console_debug("Statement '%s' found", st.toString());
+        }
+    }
+    return status;
+}
+
 function test_response_data_text(response, data_ref) {
     // Test response includes specified data
     // Returns promise of exit status code
-    let p = get_data(data_ref)
+    let p = get_data_sequence(data_ref)
         .then(text => test_data_contains_text(response.data, text))
-        .then(status => console.error("Exit status: "+status))
+        .then(status => { console.error("Exit status: "+status); return status; })
+        ;
+    return p; 
+}
+
+function test_response_data_rdf(response, resource_url, expect_ref) {
+    // Test response includes specified RDF statements
+    // Returns promise of exit status code
+    let expect_url = get_data_url(expect_ref);
+    let p = get_data_graph(expect_ref, expect_url, "text/turtle")
+        .then(expect_graph  => test_data_contains_rdf(
+                response.data, resource_url, response.headers["content-type"], 
+                expect_graph, expect_url
+            )
+        )
+        .then(status => { console.error("Exit status: "+status); return status; })
         ;
     return p; 
 }
@@ -501,20 +607,28 @@ function do_help(cmd) {
         );
 }
 
+function do_full_url(data_ref) {
+    let full_url = get_data_url(data_ref);
+    console.log(full_url);
+    return EXIT_SUCCESS;
+}
+
 function do_test_login() {
     let status = EXIT_SUCCESS;
     get_config();
     let [usr, pwd, idp] = get_auth_params();
     console.error('Test login via %s as %s', idp, usr);
     get_auth_token(usr, pwd, idp)
-        .then(token => {console.log("Token %s", token)})
-        .catch(error => report_error(error.message))
-            .then(errsts => status = errsts)
+        .then(token => { console.log("Token %s", token); return token; })
+        .then(token => process.exit(status))
+        .catch(error => report_error(error))
+        .then(errsts => process.exit(errsts))
         ;
-    return status;
+    return;
 }
 
 function do_list_container(container_uri) {
+    let status = EXIT_SUCCESS;
     get_config();
     console.error('List container %s', container_uri);
     get_auth_token(...get_auth_params())
@@ -522,11 +636,14 @@ function do_list_container(container_uri) {
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => show_container_contents(response, container_uri))
+        .then(response => process.exit(status))
         .catch(error   => report_error(error))
+        .then(errsts   => process.exit(errsts))
         ;
 }
 
 function do_show_resource(container_uri) {
+    let status = EXIT_SUCCESS;
     get_config();
     console.error('Show resource %s', container_uri);
     get_auth_token(...get_auth_params())
@@ -534,81 +651,73 @@ function do_show_resource(container_uri) {
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => show_response_data(response))
-        .catch(error => report_error(error))
+        .then(response => process.exit(status))
+        .catch(error   => report_error(error))
+        .then(errsts   => process.exit(errsts))
         ;
 }
 
 function do_remove_resource(resource_uri) {
+    let status = EXIT_SUCCESS;
     get_config();
     console.error('Remove resource %s', resource_uri);
     get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).delete(resource_uri))
         .then(response => show_response_status(response))
         .then(response => check_status(response))
-        .catch(error => report_error(error))
+        .then(response => process.exit(status))
+        .catch(error   => report_error(error))
+        .then(errsts   => process.exit(errsts))
         ;
 }
 
-function do_test_text_resource(resource_url, data_ref) {
+function do_test_text_resource(resource_url, expect_ref) {
     // Tests that the indicated resource is retrievable as text,
     // and that it contains all the specified lines of text.
+    //
+    // resource_url     is URL of resource to be tested.
+    // rdf_expect_ref     is URL of expected data in textual format, 
+    //                  or "-" if expected data is read from stdin.
+    //
+    let status = EXIT_SUCCESS;
     get_config();
-    console.error('Test resource %s', resource_url);
-    let status = get_auth_token(...get_auth_params())
+    console.error('Test resource text %s', resource_url);
+    get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).get(resource_url)) 
         .then(response => show_response_status(response))
         .then(response => check_status(response))
-        .then(response => test_response_data_text(response, data_ref))
-        .catch(error => report_error(error))
+        .then(response => test_response_data_text(response, expect_ref))
+        .then(status   => process.exit(status))
+        .catch(error   => report_error(error))
+        .then(errsts   => process.exit(errsts))
         ;
-    return status;
 }
 
-// function do_test_rdf_resource(container_uri, rdf_data) {
-//     // Tests that the indicated resource is retrievable as RDF (Turtle)
-//     // and that the content contains all the specified triples
-//     get_config();
-//     console.error('show resource %s', container_uri);
-//     get_auth_token(...get_auth_params())
-//         .then(token    => ldp_request(token).get(container_uri)) 
-//         .then(response => show_response_status(response))
-//         .then(response => check_status(response))
-//         .then(response => test_response_data_rdf(response, rdf_data))
-//         .catch(error => report_error(error))
-//         ;
-// }
-
-function create_resource(container_url, headers, resource_data) {
-    // Crerate resource inb specified container
+function do_test_rdf_resource(resource_ref, expect_ref) {
+    // Tests that the indicated resource is retrievable as RDF (Turtle)
+    // and that the content contains all the specified triples
     //
-    // container_url    URL of container
-    // headers          Object with headers to include in POST request.
-    //                  Notably, specifies content-type, slug and type
-    //                  link for new resource
-    // resource_data    Data reprtesenting resource to be added.
-    // 
-    // Returns a promise for the location (URL) of the created resource
+    // resource_ref     is URL of resource to be tested.
+    // expect_ref       is URL of expected RDF data in Turtle format, 
+    //                  or "-" if expected data is read from stdin.
     //
-    if (program.verbose) {
-        console.log("post_data: headers:");
-        console.log(headers);
-        console.log("post_data: resource_data:");
-        console.log(resource_data);
-    }
-    //  Post to supplied LDP container URI to create container
-    let p = get_auth_token(...get_auth_params())
-        .then(token    => ldp_request(token).post(
-            container_url, resource_data, {"headers": headers}
-            ))
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Test resource RDF %s', resource_ref);
+    let resource_url = get_data_url(resource_ref);
+    get_auth_token(...get_auth_params())
+        .then(token    => ldp_request(token).get(resource_url)) 
         .then(response => show_response_status(response))
         .then(response => check_status(response))
-        .then(response => extract_header(response, "location"))
-        .then(location => console_debug("post_data: created %s", location))
+        .then(response => test_response_data_rdf(response, resource_url, expect_ref))
+        .then(status   => process.exit(status))
+        .catch(error   => report_error(error))
+        .then(errsts   => process.exit(errsts))
         ;
-    return p;
 }
 
 function do_create_workset(parent_url, wsname) {
+    let status = EXIT_SUCCESS;
     get_config();
     console.error('Create workset %s in container %s', wsname, parent_url);
     //  Assemble workset container data
@@ -623,22 +732,25 @@ function do_create_workset(parent_url, wsname) {
         "slug":         wsname,
     }
     create_resource(parent_url, header_data, container_data)
-        .then(location => console.log(location))
-        .catch(error => report_error(error))
+        .then(location => { console.log(location); return location; })
+        .then(location => process.exit(status))
+        .catch(error   => report_error(error))
+        .then(errsts   => process.exit(errsts))
         ;
 }
 
-function do_add_fragment(workset_url, fragment_url, fragment_name) {
+function do_add_fragment(workset_url, fragment_ref, fragment_name) {
+    let status = EXIT_SUCCESS;
     get_config();
     console.error(
         'Add fragment %s as %s in workset %s', 
-        fragment_url, fragment_name, workset_url
+        fragment_ref, fragment_name, workset_url
         );
 
     //  Assemble workset container data
-    let fragment_uri  = new URL(fragment_url, BASEURL).toString();
+    let fragment_uri  = get_data_url(fragment_ref);
     let fragment_body = fr_template
-        .replace("@FRAGURI", fragment_url)
+        .replace("@FRAGURI", fragment_uri)
         .replace("@AUTHOR",  AUTHOR)
         .replace("@CREATED", DATE)
         ;
@@ -649,13 +761,22 @@ function do_add_fragment(workset_url, fragment_url, fragment_name) {
         "slug":         fragment_name,
     }
     create_resource(workset_url, header_data, fragment_data)
-        .then(location => console.log(location))
-        .catch(error => report_error(error))
+        .then(location => { console.log(location); return location; })
+        .then(location => process.exit(status))
+        .catch(error   => report_error(error))
+        .then(errsts   => process.exit(errsts))
         ;
 }
-
-function do_add_annotation(container_url, target_uri, body_uri, motivation) {
+       
+function do_add_annotation(container_url, target_ref, body_ref, motivation_ref) {
+    let status = EXIT_SUCCESS;
     get_config();
+    let target_uri = target_ref;
+    let body_uri   = body_ref;
+    let motivation = motivation_ref;
+    // let target_uri = get_data_url(target_ref, STDINURL);
+    // let body_uri   = get_data_url(body_ref, STDINURL);
+    // let motivation = get_data_url(motivation_ref, STDINURL);
     console.error(
         'Add %s annotation %s -> %s in container %s', 
         motivation, target_uri, body_uri, container_url
@@ -665,7 +786,7 @@ function do_add_annotation(container_url, target_uri, body_uri, motivation) {
         url_slug(target_uri, "@target")     + "." + 
         url_slug(motivation, "@motivation") + "." + 
         url_slug(body_uri,   "@body");
-    let annotation_url  = new URL(annotation_ref, BASEURL).toString();
+    let annotation_url  = get_data_url(annotation_ref);
     let annotation_body = an_template
         .replace("@TARGETURI",  target_uri)
         .replace("@BODYURI",    body_uri)
@@ -678,8 +799,10 @@ function do_add_annotation(container_url, target_uri, body_uri, motivation) {
         "slug":         annotation_ref,
     }
     create_resource(container_url, header_data, annotation_data)
-        .then(location => console.log(location))
-        .catch(error => report_error(error))
+        .then(location => { console.log(location); return location; })
+        .then(location => process.exit(status))
+        .catch(error   => report_error(error))
+        .then(errsts   => process.exit(errsts))
         ;
 }
 

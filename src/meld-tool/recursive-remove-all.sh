@@ -13,12 +13,13 @@ if [[ "$1" == "" ]]; then
 fi
 
 for ITEM in $(node meld_tool.js ls $1); do
-    if node meld_tool.js test-text-resource $ITEM --literal "ldp:contains"
-    then
-        . recursive-remove-all.sh $ITEM
-    fi
+    # echo "Processing $ITEM in $1 from $2"
+    . recursive-remove-all.sh $ITEM $1
     node meld_tool.js rm $ITEM
+    # echo "Completed $ITEM"
 done
+
+ITEM="$1" # Reset ITEM to value prior to recursive call
 
 # node meld_tool.js ls $1
 
