@@ -13,7 +13,7 @@
 - [x] "add-fragment" implementation
 
 - [x] "test-text-resource" implementation
-- [ ] "test-rdf-resource" implementation
+- [x] "test-rdf-resource" implementation
 - [ ] "test-is-container" implemenation
 
 - [x] "create-annotation-container" implementation
@@ -36,15 +36,69 @@
     npm install rdflib
     npm install @solid/cli
 
-## `meld_tool.js`
-
-@@TODO intro/basic usage
+## Running `meld_tool.js`
 
 Try:
 
     node meld_tool.js --help
 
-@@@
+### Basic usage
+
+(The command help output has been lightly reformatted here.  Some of the descriptive text could be better.)
+
+```
+$ node meld_tool.js --help
+Usage: meld_tool [options] <sub-command> [args]
+
+Options:
+  -V, --version                                                     
+        output the version number
+  -a, --author <author>                                             
+        Author name of container or entry created
+  -b, --baseurl <baseurl>                                           
+        LDP server base URL
+  -s, --stdinurl <stdinurl>                                         
+        Standard input data base URL
+  -u, --username <username>                                         
+        Username for authentication (overrides MELD_USERNAME environment variable)
+  -p, --password <password>                                         
+        Password for authentication (overrides MELD_PASSWORD environment variable)
+  -i, --provider <provider>                                         
+        Identity provider for authentication (overrides MELD_IDPROVIDER environment variable)
+  -l, --literal <data>                                              
+        Provide data literal(s) as alternative to input (default: [])
+  -d, --debug                                                       
+        Generate additional progress or diagnostic output to stderr
+  -v, --verbose                                                     
+        Generate more verbose output to stdout
+  -h, --help                                                        
+        output usage information
+
+Commands:
+  help [cmd]
+  full-url                                                          
+        Write fully qualified URL to stdout.
+  list-container|ls <container_url>                                 
+        List contents of container to stdout.
+  show-resource|sh <resource_url>                                   
+        Write resource content to stdout.
+  remove-resource|rm <resource_url>                                 
+        Remove resource from container.
+  create-workset|crws <container_url> <workset_name>                
+        Create working set and write URI to stdout.
+  add-fragment|adfr <workset_url> <fragment_url> <fragment_name>    
+        Add fragment to working set and write fragment URI to stdout.
+  add-annotation|adan <container_url> <target> <body> <motivation>  
+        Add annotation to a container, and write allocated URI to stdout.
+  test-login                                                        
+        Test login credentials and return access token.
+  test-text-resource <resource_url> [expect_ref]                    
+        Test resource contains text in data (or --literal values).
+  test-rdf-resource <resource_url> [expect_ref]                     
+        Test resource contains RDF statements (or --literal values).
+```
+
+### Examples
 
 In the MELD tools directory:
 
@@ -59,9 +113,12 @@ In the MELD tools directory:
 
 (Are any of the above exports necessary?  I think that, if they're needed, it's for running solid-server.  Maybe just the first is needed?)
 
+See also:
 
-
-
+- src/meld-tool/setenv.sh
+- src/meld-tool/remove-all.sh
+- src/meld-tool/recursive-remove-all.sh
+- src/meld-tool/test-add-annotation.sh
 
 
 ## Other notes
