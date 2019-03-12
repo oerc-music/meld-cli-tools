@@ -1,4 +1,17 @@
 # Set up envronment for running solid server under node.js
+#
+# Copy this to the meld_tool working directory, and 
+# edit to match local requirements; e.g.
+#
+#   ~/.nvm/     change to location of nvm
+#   SOLID_CERTS change to location of solid server certificates
+#
+# Run script as 'source solid-setenv'.
+#
+# Note that the certificate details are used by client applications
+# (such as 'meld_tool.js'), and also by the solid server itself through
+# the server configuration setup process (e.g. 'solid init').
+# 
 
 source ~/.nvm/nvm.sh
 source ~/.nvm/bash_completion

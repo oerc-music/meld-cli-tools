@@ -104,7 +104,7 @@ program.version('0.1.0')
     .usage("[options] <sub-command> [args]")
     .option("-a, --author <author>",     "Author name of container or entry created")
     .option("-b, --baseurl <baseurl>",   "LDP server base URL")
-    .option("-s, --stdinurl <stdinurl>", "Standard input data base URL (for URI reference resolution")
+    .option("-s, --stdinurl <stdinurl>", "Standard input data base URL")
     .option("-u, --username <username>", "Username for authentication (overrides MELD_USERNAME environment variable)")
     .option("-p, --password <password>", "Password for authentication (overrides MELD_PASSWORD environment variable)")
     .option("-i, --provider <provider>", "Identity provider for authentication (overrides MELD_IDPROVIDER environment variable)")
@@ -190,7 +190,8 @@ program.on('command:*', function () {
         'Invalid command: %s\nSee --help for a list of available commands.', 
         program.args.join(' ')
         );
-    process.exit(EXIT_COMMAND_ERR);
+    throw ProcessExit(EXIT_COMMAND_ERR, "Invalid command");
+    // process.exit(EXIT_COMMAND_ERR);
 });
 
 function collect_multiple(val, option_vals) {
@@ -205,6 +206,22 @@ function collect_multiple(val, option_vals) {
 //  Various supporting functions
 //
 //  ===================================================================
+
+function ProcessExit(exitstatus, exitmessage) {
+    let err = new Error(exitmessage);
+    err.name  = 'ExitStatus';
+    err.value = exitstatus;
+    return err;
+}
+
+function console_debug(message, value) {
+    // If debug mode selected, logs an error to the console using the 
+    // supplied message and value.  Returns the value for the next handler.
+    if (program.debug) {
+        console.error(message, value);
+    }
+    return value;
+}
 
 function get_config() {
     // This is a placeholder, obtaining values from command line options.
@@ -392,7 +409,7 @@ function show_response_data(response) {
 }
 
 function get_node_URI(node) {
-    // Return URI from graph node value, or undefined if not a URI node
+    // Return URI from graph nopde value, or undefined if not a URI node
     if (node && node.termType === "NamedNode") {
         return node.value
     }
@@ -416,7 +433,7 @@ function show_container_contents(response, container_ref) {
 }
 
 function create_resource(container_url, headers, resource_data) {
-    // Create resource in specified container
+    // Create resource inb specified container
     //
     // container_url    URL of container
     // headers          Object with headers to include in POST request.
@@ -443,15 +460,6 @@ function create_resource(container_url, headers, resource_data) {
         .then(location => console_debug("post_data: created %s", location))
         ;
     return p;
-}
-
-function console_debug(message, value) {
-    // If debug mode selected, logs an error to the console using the 
-    // supplied message and value.  Returns the value for the next handler.
-    if (program.debug) {
-        console.error(message, value);
-    }
-    return value;
 }
 
 function report_error(error) {
@@ -620,9 +628,9 @@ function do_test_login() {
     console.error('Test login via %s as %s', idp, usr);
     get_auth_token(usr, pwd, idp)
         .then(token => { console.log("Token %s", token); return token; })
-        .then(token => process.exit(status))
+        .then(token => { throw ProcessExit(status, "Authenticated"); })
         .catch(error => report_error(error))
-        .then(errsts => process.exit(errsts))
+        .then(errsts => { throw ProcessExit(errsts, "Authentication error"); })
         ;
     return;
 }
@@ -636,9 +644,9 @@ function do_list_container(container_uri) {
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => show_container_contents(response, container_uri))
-        .then(response => process.exit(status))
+        .then(response => { throw ProcessExit(status, "List container OK"); })
         .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .then(errsts   => { throw ProcessExit(errsts, "List container error"); })
         ;
 }
 
@@ -651,9 +659,9 @@ function do_show_resource(container_uri) {
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => show_response_data(response))
-        .then(response => process.exit(status))
+        .then(response => { throw ProcessExit(status, "Show resource OK"); })
         .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .then(errsts   => { throw ProcessExit(errsts, "Show resource error"); })
         ;
 }
 
@@ -665,9 +673,9 @@ function do_remove_resource(resource_uri) {
         .then(token    => ldp_request(token).delete(resource_uri))
         .then(response => show_response_status(response))
         .then(response => check_status(response))
-        .then(response => process.exit(status))
+        .then(response => { throw ProcessExit(status, "Remove resource OK"); })
         .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .then(errsts   => { throw ProcessExit(errsts, "Remove resource error"); })
         ;
 }
 
@@ -687,9 +695,9 @@ function do_test_text_resource(resource_url, expect_ref) {
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => test_response_data_text(response, expect_ref))
-        .then(status   => process.exit(status))
+        .then(status   => { throw ProcessExit(status, "Test resource text"); })
         .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .then(errsts   => { throw ProcessExit(errsts, "Test resource text error"); })
         ;
 }
 
@@ -710,9 +718,9 @@ function do_test_rdf_resource(resource_ref, expect_ref) {
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => test_response_data_rdf(response, resource_url, expect_ref))
-        .then(status   => process.exit(status))
+        .then(status   => { throw ProcessExit(status, "Test resource RDF"); })
         .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .then(errsts   => { throw ProcessExit(errsts, "Test resource RDF error"); })
         ;
 }
 
@@ -733,9 +741,9 @@ function do_create_workset(parent_url, wsname) {
     }
     create_resource(parent_url, header_data, container_data)
         .then(location => { console.log(location); return location; })
-        .then(location => process.exit(status))
+        .then(location => { throw ProcessExit(status, "Create workset OK"); })
         .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .then(errsts   => { throw ProcessExit(errsts, "Create workset error"); })
         ;
 }
 
@@ -762,9 +770,9 @@ function do_add_fragment(workset_url, fragment_ref, fragment_name) {
     }
     create_resource(workset_url, header_data, fragment_data)
         .then(location => { console.log(location); return location; })
-        .then(location => process.exit(status))
+        .then(location => { throw ProcessExit(status, "Add fragment OK"); })
         .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .then(errsts   => { throw ProcessExit(errsts, "Add fragment error"); })
         ;
 }
        
@@ -800,9 +808,9 @@ function do_add_annotation(container_url, target_ref, body_ref, motivation_ref) 
     }
     create_resource(container_url, header_data, annotation_data)
         .then(location => { console.log(location); return location; })
-        .then(location => process.exit(status))
+        .then(location => { throw ProcessExit(status, "Add annotation OK"); })
         .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .then(errsts   => { throw ProcessExit(errsts, "Add annotation error"); })
         ;
 }
 
@@ -814,8 +822,18 @@ function do_add_annotation(container_url, target_ref, body_ref, motivation_ref) 
 //  ===================================================================
 
 function runmain(argv) {
-    program.parse(argv);
+    try {
+        program.parse(argv);
+    }
+    catch (e) {
+        if (e.name === 'ExitStatus') {
+            console_debug('ExitStatus: '+e.message+' ('+String(e.exitstatus)+')');
+            process.exit(e.exitstatus);
+        }
+        console_debug(e.name+': '+e.message);
+        throw e;
+    }
 }
 
-runmain(process.argv)
+runmain(process.argv);
 

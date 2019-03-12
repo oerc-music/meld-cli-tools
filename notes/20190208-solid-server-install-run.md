@@ -18,8 +18,8 @@ To activate `nvm` in directory `$NVM_HOME`, use:
 
 To use `nvm` to install a recent version of node, use some combination of the following:
 
-    $ nvm ls-remote
-    $ nvm install v10.15.1
+    $ nvm ls-remote | grep LTS
+    $ nvm install v10.15.1    # Use appropriate recent version
     $ node -v
 
 Status:
@@ -151,7 +151,7 @@ See: https://blog.filippo.io/mkcert-valid-https-certificates-for-localhost/
 
 ## Run solid server
 
-Start Solid:
+If using proper server certificate (i.e. not self-signed), start Solid like this:
 
     $ npx solid start
 
@@ -159,7 +159,7 @@ For debug output, use:
 
     $ DEBUG=solid:* npx solid start
 
-If using a self-signed certificate (i.e., one not trusted by the host system certificate root), use one of the following commands instead:
+If using a self-signed certificate (i.e., one not trusted by any configured host system root certificate), use one of the following commands instead:
 
     $ ./node_modules/solid-server/bin/solid-test start
 
@@ -167,7 +167,43 @@ or
 
     $ DEBUG=solid:* ./node_modules/solid-server/bin/solid-test start
 
-(These commands suspend certificate checking by the solid server, and should not be used in production.  They are needed because it uses HTTP transactions internally for some operations.)
+(These commands suspend certificate checking by the solid server, and should not be used in production.  They are needed because the Solid server uses HTTP transactions internally for some operations.)
+
+
+## Run as a basic LDP server (without authentication)
+
+Locate the server configuration file `config.json`, with contents something like this:
+
+```
+{
+  "root": "/Users/graham/solid/data",
+  "port": "8443",
+  "serverUri": "https://localhost:8443",
+  "webid": true,
+  "mount": "/",
+  "configPath": "./config",
+  "configFile": "./config.json",
+  "dbPath": "./.db",
+  "sslKey": "../solid-certs/localhost.key",
+  "sslCert": "../solid-certs/localhost.crt",
+  "multiuser": false,
+  "server": {
+    "name": "localhost",
+    "description": "",
+    "logo": ""
+  }
+}
+```
+
+Change the line
+
+      "webid": true,
+
+to:
+
+      "webid": false,
+
+then start the server as described above.
 
 
 ## Deploy "production" solid server with LetsEncrypt certificate
@@ -300,25 +336,39 @@ At this point, console log looks like this:
     * Connection #0 to host localhost left intact
 
 
-## Check out meld-tool
+## Check out meld_tool
 
-@@@@@
-
-Withj solid server in non-multi-user mode, the base container is at https://localhost:8443/public/
+With solid server in non-multi-user mode, the base container is at https://localhost:8443/public/
 
 I found I also needed:
 
     export NODE_PATH=/Users/graham/.nvm/versions/node/v10.15.0/lib/node_modules/
 
+This command tests authentication with the Solid server:
+
     node meld_tool.js test-login \
         --provider=https://localhost:8443 \
         --username=gklyne --password=****
 
-@@@@ add url to command line?
+For a list of available commands:
+
+    node meld_tool.js --help
+
+See [test-add-annotation.sh][../src/meld-tool/test-add-annotation.sh] for more examples of meld_tool command usage.
+
+
+## meld_tool environment variables
+
+```
+export MELD_USERNAME=(login username)
+export MELD_PASSWORD=(login password)
+export MELD_IDPROVIDER=https://localhost:8443
+```
 
 
 ## WebID authentication
 
+See:
 
 https://github.com/solid/solid/issues/146 (discussion)
 
