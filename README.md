@@ -19,5 +19,5 @@ The tooling currently consists of `src/meld-tool/meld_tool.js`, which is a work 
 See also:
 
 - [Solid server insrtallation notes](./notes/20190208-solid-server-install-run.md)
-- [meld_tool installation notes])(./notes/20190312-meld_tool-install-run.md)
+- [meld_tool installation notes](./notes/20190312-meld_tool-install-run.md)
 
