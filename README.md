@@ -14,10 +14,10 @@ This is intended to provide:
 
 `meld_tool.js` is designed and tested with a Solid server running under node.js (https://github.com/solid/node-solid-server), but should work with other LDP servers.
 
-The tooling currently consists of `src/meld-tool/meld_tool.js`, which is a work in progress.  See [TODO](./src/meld-tool/README.md) for status.
+The tooling currently consists of `src/meld-tool/meld_tool.js`, which is a work in progress.  See [meld_tool.js README](./src/meld-tool/README.md) for status.
 
 See also:
 
-- [Solid server insrtallation notes](./notes/20190208-solid-server-install-run.md)
+- [Solid server installation notes](./notes/20190208-solid-server-install-run.md)
 - [meld_tool installation notes](./notes/20190312-meld_tool-install-run.md)
 
