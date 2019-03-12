@@ -16,10 +16,10 @@
 - [x] "test-rdf-resource" implementation
 - [ ] "test-is-container" implemenation
 
-- [x] "create-annotation-container" implementation
+- [ ] "create-annotation-container" implementation
 - [ ] "show-annotation-container" implementation
 - [ ] "delete-annotation-container" implementation
-- [ ] "create-annotation" implementation
+- [x] "create-annotation" implementation
 - [ ] "show-annotation" implementation
 - [ ] "delete-annotation" implementation
 
