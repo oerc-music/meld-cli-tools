@@ -6,7 +6,7 @@ This is intended to provide:
 
 1. an easy way to experiment with LDP containers containing MELD annotations and SOFA match services.
 
-2. a tool that for tesing MELD application interactions with LDP containers.
+2. a tool for tesing MELD application interactions with LDP containers.
 
 3. simple code examples for accessing and manipulating MELD data in LDP containers.
 

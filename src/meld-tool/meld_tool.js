@@ -104,7 +104,7 @@ program.version('0.1.0')
     .usage("[options] <sub-command> [args]")
     .option("-a, --author <author>",     "Author name of container or entry created")
     .option("-b, --baseurl <baseurl>",   "LDP server base URL")
-    .option("-s, --stdinurl <stdinurl>", "Standard input data base URL (for URI reference resolution")
+    .option("-s, --stdinurl <stdinurl>", "Standard input data base URL (for URI reference resolution)")
     .option("-u, --username <username>", "Username for authentication (overrides MELD_USERNAME environment variable)")
     .option("-p, --password <password>", "Password for authentication (overrides MELD_PASSWORD environment variable)")
     .option("-i, --provider <provider>", "Identity provider for authentication (overrides MELD_IDPROVIDER environment variable)")
@@ -123,58 +123,58 @@ program.command("help [cmd]")
 
 program.command("full-url")
     .description("Write fully qualified URL to stdout.")
-    .action(do_full_url)
+    .action(run_command(do_full_url))
     ;
 
 program.command("list-container <container_url>")
     .alias("ls")
     .description("List contents of container to stdout.")
-    .action(do_list_container)
+    .action(run_command(do_list_container))
     ;
 
 program.command("show-resource <resource_url>")
     .alias("sh")
     .description("Write resource content to stdout.")
-    .action(do_show_resource)
+    .action(run_command(do_show_resource))
     ;
 
 program.command("remove-resource <resource_url>")
     .alias("rm")
     .description("Remove resource from container.")
-    .action(do_remove_resource)
+    .action(run_command(do_remove_resource))
     ;
 
 program.command("create-workset <container_url> <workset_name>")
     .alias("crws")
     .description("Create working set and write URI to stdout.")
-    .action(do_create_workset)
+    .action(run_command(do_create_workset))
     ;
 
 program.command("add-fragment <workset_url> <fragment_url> <fragment_name>")
     .alias("adfr")
     .description("Add fragment to working set and write fragment URI to stdout.")
-    .action(do_add_fragment)
+    .action(run_command(do_add_fragment))
     ;
 
 program.command("add-annotation <container_url> <target> <body> <motivation>")
     .alias("adan")
     .description("Add annotation to a container, and write allocated URI to stdout.")
-    .action(do_add_annotation)
+    .action(run_command(do_add_annotation))
     ;
 
 program.command("test-login")
     .description("Test login credentials and return access token.")
-    .action(do_test_login)
+    .action(run_command(do_test_login))
     ;
 
 program.command("test-text-resource <resource_url> [expect_ref]")
     .description("Test resource contains text in data (or --literal values).")
-    .action(do_test_text_resource)
+    .action(run_command(do_test_text_resource))
     ;
 
 program.command("test-rdf-resource <resource_url> [expect_ref]")
     .description("Test resource contains RDF statements (or --literal values).")
-    .action(do_test_rdf_resource)
+    .action(run_command(do_test_rdf_resource))
     ;
 
 // program.command("*")
@@ -190,7 +190,7 @@ program.on('command:*', function () {
         'Invalid command: %s\nSee --help for a list of available commands.', 
         program.args.join(' ')
         );
-    process.exit(EXIT_COMMAND_ERR);
+    process_exit(EXIT_COMMAND_ERR, "Invalid command");
 });
 
 function collect_multiple(val, option_vals) {
@@ -199,12 +199,55 @@ function collect_multiple(val, option_vals) {
 }
 
 
-
 //  ===================================================================
 //
 //  Various supporting functions
 //
 //  ===================================================================
+
+function process_exit(exitstatus, exitmessage) {
+    // Exit process with supplied status code (and diagnostic message)
+    // This function isolates process exit handling.
+    let err = new Error(exitmessage);
+    err.name  = 'ExitStatus';
+    err.value = exitstatus;
+    throw err;
+}
+
+function run_command(do_command) {
+    // Wrapper for executing a command function.
+    // returns a function that is used by commander.js parser.
+    function handle_exit(e) {
+        if (e.name === 'ExitStatus') {
+            console_debug('ExitStatus: '+e.message+' ('+String(e.value)+')');
+            process.exit(e.value);
+        }
+        throw e;        
+    }
+    function handle_error(e) {
+        let sts = report_error(e);
+        process.exit(e);
+    }
+    function do_cmd(...args) {
+        let p = do_command(...args)
+            .catch(e => handle_exit(e))
+            .catch(e => handle_error(e))
+            ;
+    }
+    return do_cmd;
+}
+
+function console_debug(message, value) {
+    // If debug mode selected, logs an error to the console using the 
+    // supplied message and value.  Returns the value for the next handler.
+    if (program.debug) {
+        if (value === undefined) {
+            value = "";
+        }
+        console.error(message, value);
+    }
+    return value;
+}
 
 function get_config() {
     // This is a placeholder, obtaining values from command line options.
@@ -307,7 +350,8 @@ function get_data_sequence(data_ref, content_type) {
 
 function get_data_graph(data_ref, data_url, content_type) {
     let p = get_data_sequence(data_ref, content_type)
-        .then(stream_data => parse_rdf(stream_data, content_type, data_url));
+        .then(stream_data => parse_rdf(stream_data, content_type, data_url))
+        ;
     return p;
 }
 
@@ -373,11 +417,11 @@ function ldp_request(token) {
 }
 
 function show_response_status(response){
-    console.error(response.status+": "+response.statusText);
-    if (response.headers["location"]) {
-        console.error("Location: "+response.headers["location"]);
-    }
     if (program.debug) {
+        console.error(response.status+": "+response.statusText);
+        if (response.headers["location"]) {
+            console.error("Location: "+response.headers["location"]);
+        }
         console.error("Request header:");
         console.error(response.request._header);
         console.error("Response header fields:");
@@ -445,17 +489,8 @@ function create_resource(container_url, headers, resource_data) {
     return p;
 }
 
-function console_debug(message, value) {
-    // If debug mode selected, logs an error to the console using the 
-    // supplied message and value.  Returns the value for the next handler.
-    if (program.debug) {
-        console.error(message, value);
-    }
-    return value;
-}
-
-function report_error(error) {
-    // Reports an error and returns an exit status value
+function report_error(error, exit_msg) {
+    // Reports an error and triggers process exit with error
     let status = EXIT_GENERAL_FAIL;
     if (error.response) {
         // Request errors:
@@ -485,7 +520,7 @@ function report_error(error) {
         console_debug(error);
     }
     console_debug(error.stack);
-    return status;
+    process_exit(status, exit_msg);
 }
 
 function check_status(response) {
@@ -605,12 +640,17 @@ function do_help(cmd) {
     helptext.forEach(
         (txt) => { console.log(txt); }
         );
+    return Promise.resolve(null)
+        .then(() => process_exit(EXIT_SUCCESS, "Help OK"))
+        ;
 }
 
 function do_full_url(data_ref) {
     let full_url = get_data_url(data_ref);
     console.log(full_url);
-    return EXIT_SUCCESS;
+    return Promise.resolve(null)
+        .then(() => process_exit(EXIT_SUCCESS, "Full URL OK"))
+        ;
 }
 
 function do_test_login() {
@@ -618,57 +658,56 @@ function do_test_login() {
     get_config();
     let [usr, pwd, idp] = get_auth_params();
     console.error('Test login via %s as %s', idp, usr);
-    get_auth_token(usr, pwd, idp)
-        .then(token => { console.log("Token %s", token); return token; })
-        .then(token => process.exit(status))
-        .catch(error => report_error(error))
-        .then(errsts => process.exit(errsts))
+    let p = get_auth_token(usr, pwd, idp)
+        .then(token  => { console.log("Token %s", token); return token; })
+        .catch(error => report_error(error,  "Authentication error"))
+        .then(token  => process_exit(status, "Authenticated"))
         ;
-    return;
+    return p;
 }
 
 function do_list_container(container_uri) {
     let status = EXIT_SUCCESS;
     get_config();
     console.error('List container %s', container_uri);
-    get_auth_token(...get_auth_params())
+    let p = get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).get(container_uri)) 
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => show_container_contents(response, container_uri))
-        .then(response => process.exit(status))
-        .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .catch(error   => report_error(error,  "List container error"))
+        .then(response => process_exit(status, "List container OK"))
         ;
+    return p;
 }
 
 function do_show_resource(container_uri) {
     let status = EXIT_SUCCESS;
     get_config();
     console.error('Show resource %s', container_uri);
-    get_auth_token(...get_auth_params())
+    let p = get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).get(container_uri)) 
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => show_response_data(response))
-        .then(response => process.exit(status))
-        .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .catch(error   => report_error(error,  "Show resource error"))
+        .then(response => process_exit(status, "Show resource OK"))
         ;
+    return p;
 }
 
 function do_remove_resource(resource_uri) {
     let status = EXIT_SUCCESS;
     get_config();
     console.error('Remove resource %s', resource_uri);
-    get_auth_token(...get_auth_params())
+    let p = get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).delete(resource_uri))
         .then(response => show_response_status(response))
         .then(response => check_status(response))
-        .then(response => process.exit(status))
-        .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .catch(error   => report_error(error,  "Remove resource error"))
+        .then(response => process_exit(status, "Remove resource OK"))
         ;
+    return p;
 }
 
 function do_test_text_resource(resource_url, expect_ref) {
@@ -679,18 +718,17 @@ function do_test_text_resource(resource_url, expect_ref) {
     // rdf_expect_ref     is URL of expected data in textual format, 
     //                  or "-" if expected data is read from stdin.
     //
-    let status = EXIT_SUCCESS;
     get_config();
     console.error('Test resource text %s', resource_url);
-    get_auth_token(...get_auth_params())
+    let p = get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).get(resource_url)) 
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => test_response_data_text(response, expect_ref))
-        .then(status   => process.exit(status))
-        .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .catch(error   => report_error(error,  "Test resource text error"))
+        .then(status   => process_exit(status, "Test resource text"))
         ;
+    return p;
 }
 
 function do_test_rdf_resource(resource_ref, expect_ref) {
@@ -701,19 +739,18 @@ function do_test_rdf_resource(resource_ref, expect_ref) {
     // expect_ref       is URL of expected RDF data in Turtle format, 
     //                  or "-" if expected data is read from stdin.
     //
-    let status = EXIT_SUCCESS;
     get_config();
     console.error('Test resource RDF %s', resource_ref);
     let resource_url = get_data_url(resource_ref);
-    get_auth_token(...get_auth_params())
+    let p = get_auth_token(...get_auth_params())
         .then(token    => ldp_request(token).get(resource_url)) 
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => test_response_data_rdf(response, resource_url, expect_ref))
-        .then(status   => process.exit(status))
-        .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .catch(error   => report_error(error,  "Test resource RDF error"))
+        .then(status   => process_exit(status, "Test resource RDF"))
         ;
+    return p;
 }
 
 function do_create_workset(parent_url, wsname) {
@@ -731,12 +768,12 @@ function do_create_workset(parent_url, wsname) {
         "link":         `<${LDP_BASIC_CONTAINER}>; rel="type"`,
         "slug":         wsname,
     }
-    create_resource(parent_url, header_data, container_data)
+    let p = create_resource(parent_url, header_data, container_data)
         .then(location => { console.log(location); return location; })
-        .then(location => process.exit(status))
-        .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .catch(error   => report_error(error,  "Create workset error"))
+        .then(location => process_exit(status, "Create workset OK"))
         ;
+    return p;
 }
 
 function do_add_fragment(workset_url, fragment_ref, fragment_name) {
@@ -760,12 +797,12 @@ function do_add_fragment(workset_url, fragment_ref, fragment_name) {
         "link":         `<${LDP_RESOURCE}>; rel="type"`,
         "slug":         fragment_name,
     }
-    create_resource(workset_url, header_data, fragment_data)
+    let p = create_resource(workset_url, header_data, fragment_data)
         .then(location => { console.log(location); return location; })
-        .then(location => process.exit(status))
-        .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .catch(error   => report_error(error,  "Add fragment error"))
+        .then(location => process_exit(status, "Add fragment OK"))
         ;
+    return p;
 }
        
 function do_add_annotation(container_url, target_ref, body_ref, motivation_ref) {
@@ -798,12 +835,12 @@ function do_add_annotation(container_url, target_ref, body_ref, motivation_ref) 
         "link":         `<${LDP_RESOURCE}>; rel="type"`,
         "slug":         annotation_ref,
     }
-    create_resource(container_url, header_data, annotation_data)
+    let p = create_resource(container_url, header_data, annotation_data)
         .then(location => { console.log(location); return location; })
-        .then(location => process.exit(status))
-        .catch(error   => report_error(error))
-        .then(errsts   => process.exit(errsts))
+        .catch(error   => report_error(error,  "Add annotation error"))
+        .then(location => process_exit(status, "Add annotation OK"))
         ;
+    return p;
 }
 
 
@@ -817,5 +854,5 @@ function runmain(argv) {
     program.parse(argv);
 }
 
-runmain(process.argv)
+runmain(process.argv);
 

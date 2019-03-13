@@ -17,7 +17,7 @@ or, using HTTPS instread of SSH:
 
 Go to `meld_tool` directory:
 
-    cd src/meld_tool
+    cd meld-cli-tools/src/meld_tool
 
 Install dependencies:
 
@@ -38,19 +38,21 @@ With solid server in non-multi-user mode, the base container is at https://local
 
 I found I also needed:
 
-    export NODE_PATH=/Users/graham/.nvm/versions/node/v10.15.0/lib/node_modules/
+    export NODE_PATH=$HOME/.nvm/versions/node/v10.15.0/lib/node_modules/
 
 This command tests authentication with the Solid server:
 
     node meld_tool.js test-login \
         --provider=https://localhost:8443 \
-        --username=gklyne --password=****
+        --username=**** --password=****
 
 For a list of available commands:
 
     node meld_tool.js --help
 
 See [test-add-annotation.sh][../src/meld-tool/test-add-annotation.sh] for more examples of meld_tool command usage.
+
+@@TODO: more examples and testing pointers
 
 
 ## meld_tool environment variables
@@ -61,7 +63,7 @@ export MELD_PASSWORD=(login password)
 export MELD_IDPROVIDER=https://localhost:8443  # OpenID connect identity provider
 ```
 
-The above values can be provoded on the command line:
+These values can be provided on the command line:
 
 ```
   -u, --username <username>
