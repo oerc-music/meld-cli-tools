@@ -1,20 +1,25 @@
 # Remove all contents in container
 #
-# $1 = URL of container
+# $1 = path or URL of container (otherwise uses MELD_BASE_PATH)
 #
 # This is an example of using meld_tool in a bash script.
 #
 
-if [[ "$1" == "" ]]; then
-    echo "Missing container URL."
+CONTAINER_PATH=$1
+if [[ "$CONTAINER_PATH" == "" ]]; then
+    CONTAINER_PATH=$MELD_BASE_PATH
+fi
+
+if [[ "$CONTAINER_PATH" == "" ]]; then
+    echo "Missing container path or URL."
     echo ""
-    echo "Usage: $0 <container-url>"
+    echo "Usage: $0 <container-path-or-URL>"
     exit 1
 fi
 
-for ITEM in $(node $MELD_TOOL ls $1); do
-    # echo "Processing $ITEM in $1 from $2"
-    . recursive-remove-all.sh $ITEM $1
+for ITEM in $(node $MELD_TOOL ls $CONTAINER_PATH); do
+    # echo "Processing $ITEM in $CONTAINER_PATH from $2"
+    . recursive-remove-all.sh $ITEM $CONTAINER_PATH
     node $MELD_TOOL rm $ITEM
     # echo "Completed $ITEM"
 done

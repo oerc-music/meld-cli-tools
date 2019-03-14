@@ -53,27 +53,3 @@ function test_in {
     echo "${3:-test_in failed}: '$2' not found"
     return 1
 }
-
-function test_sts_eq {
-    # $1 status
-    # $2 value obtained
-    # $3 value expected
-    # $4 test label
-    if test_sts $1 "$4 exit status"; then
-        test_eq "$2" "$3" "$4 result" 
-        return $?
-    fi
-    return $1
-}
-
-function test_sts_in {
-    # $1 status
-    # $2 value obtained
-    # $3 value expected
-    # $4 test label
-    if test_sts $1 "$4 exit status"; then
-        test_in "$2" "$3" "$4 content" 
-        return $?
-    fi
-    return $1
-}
