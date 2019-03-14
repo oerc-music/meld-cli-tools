@@ -190,7 +190,11 @@ program.on('command:*', function () {
         'Invalid command: %s\nSee --help for a list of available commands.', 
         program.args.join(' ')
         );
-    process_exit(EXIT_COMMAND_ERR, "Invalid command");
+    process.exit(EXIT_COMMAND_ERR);
+    // return Promise.resolve(null)
+    //     .then(() => process_exit(EXIT_COMMAND_ERR, "Invalid command"))
+    //     .catch(errsts => ???)
+    //     ;
 });
 
 function collect_multiple(val, option_vals) {

@@ -12,15 +12,15 @@ if [[ "$1" == "" ]]; then
     exit 1
 fi
 
-for ITEM in $(node meld_tool.js ls $1); do
+for ITEM in $(node $MELD_TOOL ls $1); do
     # echo "Processing $ITEM in $1 from $2"
     . recursive-remove-all.sh $ITEM $1
-    node meld_tool.js rm $ITEM
+    node $MELD_TOOL rm $ITEM
     # echo "Completed $ITEM"
 done
 
 ITEM="$1" # Reset ITEM to value prior to recursive call
 
-# node meld_tool.js ls $1
+# node $MELD_TOOL ls $1
 
 # End.
