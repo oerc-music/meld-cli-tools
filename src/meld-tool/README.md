@@ -18,7 +18,7 @@
 
 
 - [x] complete refactoring of "create-workset"/"add-fragment" common code
-- [ ] "add-resource" implentation
+- [X] "add-resource" implentation
 - [x] "show-resource" implementation
 - [x] "remove-resource" implementation
 - [x] "add-fragment" implementation

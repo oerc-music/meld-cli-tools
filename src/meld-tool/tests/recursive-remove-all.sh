@@ -19,7 +19,8 @@ fi
 
 for ITEM in $(node $MELD_TOOL ls $CONTAINER_PATH); do
     echo "Processing $ITEM in $CONTAINER_PATH from $2"
-    . recursive-remove-all.sh $ITEM $CONTAINER_PATH
+    node $MELD_TOOL test-is-container $ITEM \
+      && source recursive-remove-all.sh $ITEM $CONTAINER_PATH
     node $MELD_TOOL rm $ITEM
     # echo "Completed $ITEM"
 done

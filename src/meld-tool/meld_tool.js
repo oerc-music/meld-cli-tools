@@ -93,6 +93,10 @@ var an_template = `
       oa:motivatedBy <@MOTIVATION> .
       `;
 
+var basic_container = `
+    <> a ldp:BasicContainer, ldp:Container .
+    `;
+
 
 //  ===================================================================
 //
@@ -181,6 +185,11 @@ program.command("test-text-resource <resource_url> [expect_ref]")
 program.command("test-rdf-resource <resource_url> [expect_ref]")
     .description("Test resource contains RDF statements (or --literal values).")
     .action(run_command(do_test_rdf_resource))
+    ;
+
+program.command("test-is-container <resource_url>")
+    .description("Test resource is a container.")
+    .action(run_command(do_test_is_container))
     ;
 
 // program.command("*")
@@ -403,7 +412,7 @@ function get_auth_token(usr, pwd, idp) {
     }
 }
 
-function ldp_request(token) {
+function ldp_request(token, add_headers={}) {
     // Returns an Axios instance which can be used to intiate asynchronous
     // HTTP requests, with default values supplied for accessing a Solid/LDP
     // service.
@@ -415,15 +424,17 @@ function ldp_request(token) {
     let config = 
         { baseURL: BASEURL
         , timeout: 2000
-        , headers:
-            { "Content-Type": "text/turtle"
-            , "Accept":       "text/turtle"
-            } 
+        , headers: add_headers
         };
     if (token) {
         config.headers["Authorization"] = "Bearer "+token;
     }
     return axios.create(config);
+}
+
+function ldp_request_rdf(token) {
+    // Returns Axios instance that negotiates for RDF data
+    return ldp_request(token, {"Accept": "text/turtle"});
 }
 
 function show_response_status(response){
@@ -538,7 +549,20 @@ function check_status(response) {
     let status = response.status;
     if ( (status < 200) || (status >= 300) )
     {
-        throw `Error status ${status}`;
+        throw new Error(`Error status ${status}`);
+    }
+    return response;
+}
+
+function check_type_turtle(response) {
+    if (response.headers["content-type"] != "text/turtle") {
+        console.error(response.status+": "+response.statusText);
+        console.error("Response headers: ");
+        for (let h in response.headers) {
+            console.error("%s: %s", h, response.headers[h]);
+        }
+        show_response_status(response);
+        throw new Error(`Content-type ${response.headers["content-type"]}`);
     }
     return response;
 }
@@ -584,8 +608,18 @@ function test_data_contains_text(data, text) {
     return status;
 }
 
-function test_data_contains_rdf(data, data_url, content_type, expect_graph, expect_url) {
-    //  Tests if each statement of `expect_graph` is present in `actual_graph`.
+function test_response_data_text(response, data_ref) {
+    // Test response includes specified data
+    // Returns promise of exit status code
+    let p = get_data_sequence(data_ref)
+        .then(text => test_data_contains_text(response.data, text))
+        .then(status => { console.error("Exit status: "+status); return status; })
+        ;
+    return p; 
+}
+
+function test_data_contains_rdf(data, data_url, content_type, expect_graph, expect_url, missing_cb) {
+    //  Tests if each statement of `expect_graph` is present in `data`.
     //  Reports an error and returns a non-success status if any is not found.
     console_debug("---- Expect graph: url %s", expect_url);
     console_debug("\n%s\n----", 
@@ -600,23 +634,14 @@ function test_data_contains_rdf(data, data_url, content_type, expect_graph, expe
     for (var st of expect_graph.match()) {
         let st_found = actual_graph.match(st.subject, st.predicate, st.object, st.why);
         if (!st_found.length) {
-            console.error("Statement '%s' not found", st.toString());
+            missing_cb(st);
+            console_debug("Statement '%s' not found", st.toString());
             status = EXIT_CONTENT;
         } else {
             console_debug("Statement '%s' found", st.toString());
         }
     }
     return status;
-}
-
-function test_response_data_text(response, data_ref) {
-    // Test response includes specified data
-    // Returns promise of exit status code
-    let p = get_data_sequence(data_ref)
-        .then(text => test_data_contains_text(response.data, text))
-        .then(status => { console.error("Exit status: "+status); return status; })
-        ;
-    return p; 
 }
 
 function test_response_data_rdf(response, resource_url, expect_ref) {
@@ -626,7 +651,24 @@ function test_response_data_rdf(response, resource_url, expect_ref) {
     let p = get_data_graph(expect_ref, expect_url, "text/turtle")
         .then(expect_graph  => test_data_contains_rdf(
                 response.data, resource_url, response.headers["content-type"], 
-                expect_graph, expect_url
+                expect_graph, expect_url,
+                (st => console.error("Statement '%s' not found", st.toString()))
+            )
+        )
+        .then(status => { console.error("Exit status: "+status); return status; })
+        ;
+    return p; 
+}
+
+function test_response_is_container(response, resource_url) {
+    // Test response includes specified RDF statements
+    // Returns promise of exit status code
+    let expect_data = prefixes + basic_container
+    let p = Promise.resolve(parse_rdf(expect_data, "text/turtle", resource_url))
+        .then(expect_graph => test_data_contains_rdf(
+                response.data, resource_url, response.headers["content-type"], 
+                expect_graph, resource_url,
+                (st => { return; })
             )
         )
         .then(status => { console.error("Exit status: "+status); return status; })
@@ -669,7 +711,7 @@ function do_test_login() {
     let [usr, pwd, idp] = get_auth_params();
     console.error('Test login via %s as %s', idp, usr);
     let p = get_auth_token(usr, pwd, idp)
-        .then(token  => { console.log("Token %s", token); return token; })
+        .then(token  => { console.log("Bearer %s", token); return token; })
         .catch(error => report_error(error,  "Authentication error"))
         .then(token  => process_exit(status, "Authenticated"))
         ;
@@ -681,7 +723,7 @@ function do_list_container(container_uri) {
     get_config();
     console.error('List container %s', container_uri);
     let p = get_auth_token(...get_auth_params())
-        .then(token    => ldp_request(token).get(container_uri)) 
+        .then(token    => ldp_request_rdf(token).get(container_uri)) 
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => show_container_contents(response, container_uri))
@@ -708,12 +750,12 @@ function do_make_resource(parent_url, resource_name, content_type, content_ref) 
     return p;
 }
 
-function do_show_resource(container_uri) {
+function do_show_resource(resource_url) {
     let status = EXIT_SUCCESS;
     get_config();
-    console.error('Show resource %s', container_uri);
+    console.error('Show resource %s', resource_url);
     let p = get_auth_token(...get_auth_params())
-        .then(token    => ldp_request(token).get(container_uri)) 
+        .then(token    => ldp_request(token).get(resource_url)) 
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => show_response_data(response))
@@ -770,12 +812,35 @@ function do_test_rdf_resource(resource_ref, expect_ref) {
     console.error('Test resource RDF %s', resource_ref);
     let resource_url = get_data_url(resource_ref);
     let p = get_auth_token(...get_auth_params())
-        .then(token    => ldp_request(token).get(resource_url)) 
+        .then(token    => ldp_request_rdf(token).get(resource_url)) 
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => test_response_data_rdf(response, resource_url, expect_ref))
         .catch(error   => report_error(error,  "Test resource RDF error"))
         .then(status   => process_exit(status, "Test resource RDF"))
+        ;
+    return p;
+}
+
+function do_test_is_container(resource_ref) {
+    // Tests that the indicated resource is a container
+    //
+    // resource_ref     is URL of resource to be tested.
+    //
+    get_config();
+    console.error('Test resource is container %s', resource_ref);
+    let resource_url = get_data_url(resource_ref);
+    let request_rdf  = null;
+    let p = get_auth_token(...get_auth_params())
+        .then(token    => { request_rdf = ldp_request_rdf(token); })
+        .then(()       => request_rdf.get(resource_url))
+        .then(response => check_type_turtle(response))
+        .then(()       => request_rdf.get(resource_url))
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => test_response_is_container(response, resource_url))
+        .catch(error   => report_error(error,  "Test resource is container error"))
+        .then(status   => process_exit(status, "Test resource is container"))
         ;
     return p;
 }

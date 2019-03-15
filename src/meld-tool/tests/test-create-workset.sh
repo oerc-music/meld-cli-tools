@@ -15,6 +15,12 @@ if [ $EXITSTATUS -eq 0 ]; then
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
+    node $MELD_TOOL test-is-container $CONTAINER_PATH
+    test_sts $? "test-is-container"
+    EXITSTATUS=$?
+fi
+
+if [ $EXITSTATUS -eq 0 ]; then
     node $MELD_TOOL remove-resource $CONTAINER_PATH
     test_sts $? "remove-resource exit status"
     EXITSTATUS=$?

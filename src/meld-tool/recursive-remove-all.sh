@@ -14,7 +14,8 @@ fi
 
 for ITEM in $(node meld_tool.js ls $1); do
     # echo "Processing $ITEM in $1 from $2"
-    . recursive-remove-all.sh $ITEM $1
+    node meld_tool.js test-is-container $ITEM \
+     && . recursive-remove-all.sh $ITEM $1
     node meld_tool.js rm $ITEM
     # echo "Completed $ITEM"
 done
