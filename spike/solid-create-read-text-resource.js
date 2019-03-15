@@ -1,7 +1,7 @@
 // Test code to reproduce 500 server error from node-solid-server when asking for RDF
 // from a non-RDF resource.
 //
-// Set environment variable SOLID_BEARER_TOKEN
+// Set environment variable SOLID_BEARER_TOKEN (including the leading "Bearer ")
 // e.g. per meld-tool.js test-login:
 //   export SOLID_BEARER_TOKEN=$(node meld_tool.js test-login --usernamne=@@@ --password=@@@)
 //

@@ -18,6 +18,13 @@ EXITSTATUS=$?
 # Show test resource and check output
 
 if [ $EXITSTATUS -eq 0 ]; then
+    RESOURCE_CONTENT_TYPE=$(node $MELD_TOOL content-type $RESOURCE_PATH)
+    test_sts $? "show-content-type" \
+      && test_eq "$RESOURCE_CONTENT_TYPE" "text/plain"
+    EXITSTATUS=$?
+fi
+
+if [ $EXITSTATUS -eq 0 ]; then
     RESOURCE_CONTENT=$(node $MELD_TOOL show-resource $RESOURCE_PATH)
     test_sts $? "show-resource" \
       && test_in "$RESOURCE_CONTENT" "test resource line 1"    "show-resource" \

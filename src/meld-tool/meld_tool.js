@@ -154,6 +154,12 @@ program.command("remove-resource <resource_url>")
     .action(run_command(do_remove_resource))
     ;
 
+program.command("content-type <resource_url>")
+    .alias("ct")
+    .description("Write resource content-type to stdout.")
+    .action(run_command(do_show_content_type))
+    ;
+
 program.command("create-workset <container_url> <workset_name>")
     .alias("crws")
     .description("Create working set and write URI to stdout.")
@@ -453,6 +459,11 @@ function show_response_status(response){
 
 function show_response_data(response) {
     console.log(response.data);
+    return response;    
+}
+
+function show_response_content_type(response) {
+    console.log(response.headers["content-type"]);
     return response;    
 }
 
@@ -775,6 +786,21 @@ function do_remove_resource(resource_uri) {
         .then(response => check_status(response))
         .catch(error   => report_error(error,  "Remove resource error"))
         .then(response => process_exit(status, "Remove resource OK"))
+        ;
+    return p;
+}
+
+function do_show_content_type(resource_url) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Show resource content type %s', resource_url);
+    let p = get_auth_token(...get_auth_params())
+        .then(token    => ldp_request(token).get(resource_url)) 
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => show_response_content_type(response))
+        .catch(error   => report_error(error,  "Show resource content type error"))
+        .then(response => process_exit(status, "Show resource content type OK"))
         ;
     return p;
 }

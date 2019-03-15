@@ -21,6 +21,13 @@ if [ $EXITSTATUS -eq 0 ]; then
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
+    CONTAINTER_CONTENT_TYPE=$(node $MELD_TOOL content-type $CONTAINER_PATH)
+    test_sts $? "show-content-type" \
+      && test_eq "$CONTAINTER_CONTENT_TYPE" "text/turtle"
+    EXITSTATUS=$?
+fi
+
+if [ $EXITSTATUS -eq 0 ]; then
     node $MELD_TOOL remove-resource $CONTAINER_PATH
     test_sts $? "remove-resource exit status"
     EXITSTATUS=$?
