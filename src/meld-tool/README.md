@@ -6,6 +6,17 @@
 - [x] finish off "create-workset" implementation
 - [x] revisit "show-container" implementation
 - [x] "list-container" implementation
+    - [ ] Fix problem when attempting to do ls on simple text resource
+      - 'ls' command triggers solid internal server error trying to convert RDF :
+
+        solid:handlers GET -- Reading /Users/graham/solid/data/public/test_resource.txt +0ms
+        solid:get error translating: /public/test_resource.txt text/plain -> text/turtle -- 500 Don't know how to parse text/plain yet +1ms
+        solid:server Error page because of: { [HTTPError: Error translating between RDF formats]
+        name: 'HTTPError',
+        message: 'Error translating between RDF formats',
+        status: 500 } +0ms
+
+
 - [x] complete refactoring of "create-workset"/"add-fragment" common code
 - [ ] "add-resource" implentation
 - [x] "show-resource" implementation

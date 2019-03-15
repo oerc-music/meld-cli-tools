@@ -132,6 +132,12 @@ program.command("list-container <container_url>")
     .action(run_command(do_list_container))
     ;
 
+program.command("make-resource <container_url> <resource_name> <content_type> [content_ref]")
+    .alias("mk")
+    .description("Create resource with specified type and content")
+    .action(run_command(do_make_resource))
+    ;
+
 program.command("show-resource <resource_url>")
     .alias("sh")
     .description("Write resource content to stdout.")
@@ -681,6 +687,23 @@ function do_list_container(container_uri) {
         .then(response => show_container_contents(response, container_uri))
         .catch(error   => report_error(error,  "List container error"))
         .then(response => process_exit(status, "List container OK"))
+        ;
+    return p;
+}
+
+function do_make_resource(parent_url, resource_name, content_type, content_ref) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Create resource %s in container %s', resource_name, parent_url);
+    let header_data = {
+        "content-type": content_type,
+        "slug":         resource_name
+    }
+    let p = get_data_sequence(content_ref, content_type)
+        .then(data     => create_resource(parent_url, header_data, data))
+        .then(location => { console.log(location); return location; })
+        .catch(error   => report_error(error,  "Create resource error"))
+        .then(location => process_exit(status, "Create resource OK"))
         ;
     return p;
 }
