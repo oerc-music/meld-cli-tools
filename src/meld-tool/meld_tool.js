@@ -194,7 +194,7 @@ program.command("test-rdf-resource <resource_url> [expect_ref]")
     ;
 
 program.command("test-is-container <resource_url>")
-    .description("Test resource is a container.")
+    .description("Test resource is a container (non-zero exit status if not).")
     .action(run_command(do_test_is_container))
     ;
 

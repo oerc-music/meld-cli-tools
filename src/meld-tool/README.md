@@ -25,11 +25,12 @@
 - [ ] "show-annotation" implementation
 - [ ] "delete-annotation" implementation
 
-- [.] Test suite
+- [.] Complete test suite for above
 
-- [ ] default for author when creating a workset/container/annotation (how?)
+- [ ] default for author when creating a workset/container/annotation? (how?)
     - see environment $NAME (MacOS only?) / $USER
     - Linux: `getent passwd "$USER" | cut -d ':' -f 5 | cut -d ',' -f 1`
+    - Currently relying on environment variable set in `$HOME/.meld-tool/solid-auth.sh`
 
 ## Prerequisites
 
@@ -82,10 +83,14 @@ Commands:
         Write fully qualified URL to stdout.
   list-container|ls <container_url>                                 
         List contents of container to stdout.
+  make-resource|mk <container_url> <resource_name> <content_type> [content_ref]
+        Create resource with specified type and content
   show-resource|sh <resource_url>                                   
         Write resource content to stdout.
   remove-resource|rm <resource_url>                                 
         Remove resource from container.
+  content-type|ct <resource_url>
+        Write resource content-type to stdout.
   create-workset|crws <container_url> <workset_name>                
         Create working set and write URI to stdout.
   add-fragment|adfr <workset_url> <fragment_url> <fragment_name>    
@@ -98,6 +103,8 @@ Commands:
         Test resource contains text in data (or --literal values).
   test-rdf-resource <resource_url> [expect_ref]                     
         Test resource contains RDF statements (or --literal values).
+  test-is-container <resource_url>
+        Test resource is a container (non-zero exit status if not).
 ```
 
 ### Examples
