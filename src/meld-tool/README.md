@@ -3,10 +3,10 @@
 ## TODO
 
 - [x] environment variables for credentials
-- [x] finish off "create-workset" implementation
+- [x] finish off "make-workset" implementation
 - [x] revisit "show-container" implementation
 - [x] "list-container" implementation
-- [x] complete refactoring of "create-workset"/"add-fragment" common code
+- [x] complete refactoring of "make-workset"/"add-fragment" common code
 - [x] "add-resource" implentation
 - [x] "show-resource" implementation
 - [x] "remove-resource" implementation
@@ -16,12 +16,12 @@
 - [x] "test-rdf-resource" implementation
 - [x] "test-is-container" implemenation
 - [x] "content-type" implementation
-- [ ] "add-container" (not workset) implementation
+- [x] "make-container" (not workset) implementation
 
-- [ ] "create-annotation-container" implementation
+- [ ] "make-annotation-container" implementation
 - [ ] "show-annotation-container" implementation
 - [ ] "delete-annotation-container" implementation
-- [x] "create-annotation" implementation
+- [x] "make-annotation" implementation
 - [ ] "show-annotation" implementation
 - [ ] "delete-annotation" implementation
 
@@ -93,7 +93,7 @@ Commands:
         Remove resource from container.
   content-type|ct <resource_url>
         Write resource content-type to stdout.
-  create-workset|crws <container_url> <workset_name>                
+  make-workset|crws <container_url> <workset_name>                
         Create working set and write URI to stdout.
   add-fragment|adfr <workset_url> <fragment_url> <fragment_name>    
         Add fragment to working set and write fragment URI to stdout.
@@ -120,7 +120,7 @@ In the MELD tools directory:
         --provider=https://localhost:8443 \
         --username=gklyne --password=****
 
-    node meld_tool.js create-workset https://localhost:8443/ wstest
+    node meld_tool.js make-workset https://localhost:8443/ wstest
 
 (Are any of the above exports necessary?  I think that, if they're needed, it's for running solid-server.  Maybe just the first is needed?)
 

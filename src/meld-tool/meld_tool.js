@@ -154,6 +154,12 @@ program.command("show-resource <resource_url>")
     .action(run_command(do_show_resource))
     ;
 
+program.command("show-resource-rdf <resource_url>")
+    .alias("shrdf")
+    .description("Write resource content interpreted as RDF to stdout.")
+    .action(run_command(do_show_resource_rdf))
+    ;
+
 program.command("remove-resource <resource_url>")
     .alias("rm")
     .description("Remove resource from container.")
@@ -172,10 +178,10 @@ program.command("make-container <parent_url> <container_name>")
     .action(run_command(do_make_container))
     ;
 
-program.command("create-workset <container_url> <workset_name>")
-    .alias("crws")
+program.command("make-workset <container_url> <workset_name>")
+    .alias("mkws")
     .description("Create working set and write URI to stdout.")
-    .action(run_command(do_create_workset))
+    .action(run_command(do_make_workset))
     ;
 
 program.command("add-fragment <workset_url> <fragment_url> <fragment_name>")
@@ -231,8 +237,9 @@ program.on('command:*', function () {
 });
 
 function collect_multiple(val, option_vals) {
-  option_vals.push(val);
-  return option_vals;
+    // Option function used to collect multiple options to list
+    option_vals.push(val);
+    return option_vals;
 }
 
 
@@ -459,6 +466,7 @@ function ldp_request(token, add_headers={}) {
 }
 
 function ldp_request_rdf(token) {
+    // console.error("ldp_request_rdf: token ", token)
     // Returns Axios instance that negotiates for RDF data
     return ldp_request(token, {"Accept": "text/turtle"});
 }
@@ -480,6 +488,16 @@ function show_response_status(response){
 function show_response_data(response) {
     console.log(response.data);
     return response;    
+}
+
+function show_response_data_rdf(response, resource_url) {
+    // let stream_data    = get_stream_data(response.data);
+    let content_type   = response.headers["content-type"];
+    let full_url       = get_data_url(resource_url);
+    let resource_graph = parse_rdf(response.data, content_type, full_url);
+    let resource_text  = rdf.serialize(undefined, resource_graph, resource_url, 'text/turtle');
+    console.log(resource_text);
+    return response;
 }
 
 function show_response_content_type(response) {
@@ -664,8 +682,9 @@ function test_data_contains_rdf(data, data_url, content_type, expect_graph, expe
     console_debug("\n%s\n----", 
         rdf.serialize(undefined, actual_graph, data_url, 'text/turtle')
         );
+    console_debug("----");
     for (var st of expect_graph.match()) {
-        let st_found = actual_graph.match(st.subject, st.predicate, st.object, st.why);
+        let st_found = actual_graph.match(st.subject, st.predicate, st.object, undefined);
         if (!st_found.length) {
             missing_cb(st);
             console_debug("Statement '%s' not found", st.toString());
@@ -717,7 +736,7 @@ function test_response_is_container(response, resource_url) {
 
 function do_help(cmd) {
     let helptext = [
-        "meld-tool create-workset  <container_url> <workset_name>",
+        "meld-tool make-workset <container_url> <workset_name>",
         "meld-tool add-fragment <workset_url> <fragment_url> <fragment_name>",
         // "",
         // "",
@@ -794,6 +813,21 @@ function do_show_resource(resource_url) {
         .then(response => show_response_data(response))
         .catch(error   => report_error(error,  "Show resource error"))
         .then(response => process_exit(status, "Show resource OK"))
+        ;
+    return p;
+}
+
+function do_show_resource_rdf(resource_url) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Show resource RDF %s', resource_url);
+    let p = get_auth_token(...get_auth_params())
+        .then(token    => ldp_request_rdf(token).get(resource_url)) 
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => show_response_data_rdf(response, resource_url))
+        .catch(error   => report_error(error,  "Show resource RDF error"))
+        .then(response => process_exit(status, "Show resource RDF OK"))
         ;
     return p;
 }
@@ -919,10 +953,10 @@ function do_make_container(parent_url, coname) {
     return p;
 }
 
-function do_create_workset(parent_url, wsname) {
+function do_make_workset(parent_url, wsname) {
     let status = EXIT_SUCCESS;
     get_config();
-    console.error('Create workset %s in container %s', wsname, parent_url);
+    console.error('Make workset %s in container %s', wsname, parent_url);
     // @@TODO: use make_empty_container
     //  Assemble workset container data
     let container_body = ws_template
@@ -937,8 +971,8 @@ function do_create_workset(parent_url, wsname) {
     }
     let p = create_resource(parent_url, header_data, container_data)
         .then(location => { console.log(location); return location; })
-        .catch(error   => report_error(error,  "Create workset error"))
-        .then(location => process_exit(status, "Create workset OK"))
+        .catch(error   => report_error(error,  "Make workset error"))
+        .then(location => process_exit(status, "Make workset OK"))
         ;
     return p;
 }

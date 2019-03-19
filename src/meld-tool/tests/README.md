@@ -19,8 +19,6 @@ Currently going with shell scripts running command line tool, and checking outpu
         Add annotation to a container, and write allocated URI to stdout.
   test-text-resource <resource_url> [expect_ref]                    
         Test resource contains text in data (or --literal values).
-  test-rdf-resource <resource_url> [expect_ref]                     
-        Test resource contains RDF statements (or --literal values).
 @@@
 
 
@@ -29,9 +27,8 @@ Currently going with shell scripts running command line tool, and checking outpu
 - [x] Test URL resolution
 - [x] Test create workset
 - [ ] Test text resource content testing
-- [ ] Test RDF resource content testing
+- [x] Test RDF resource content testing
 - [ ] Test show workset resource
-- [ ] Test list empty container content
 - [ ] Test fragment creation, access and removal
 - [ ] Test annotation creation, access and removal
 

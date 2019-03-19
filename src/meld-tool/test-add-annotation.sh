@@ -2,7 +2,7 @@
 
 # Create container
 
-CONTAINER_URL=$(node meld_tool.js create-workset /public/ test_annotation)
+CONTAINER_URL=$(node meld_tool.js make-container /public/ test_annotation)
 echo "Created container ${CONTAINER_URL}"
 
 ANNOTATION_URL=$(node meld_tool.js add-annotation ${CONTAINER_URL} test-target test-body test-motivation)
