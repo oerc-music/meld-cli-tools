@@ -73,9 +73,15 @@ var prefixes = `
     @prefix ninre: <http://remix.numbersintonotes.net/vocab#> .
     `;
 
+var co_template = `
+    <> a ldp:BasicContainer, ldp:Container ;
+        dc:author   "@AUTHOR" ;
+        dct:created "@CREATED" .
+    `;
+
 var ws_template = `
     <> a ldp:BasicContainer, ldp:Container , ninre:WorkSet ;
-        dc:author "@AUTHOR" ;
+        dc:author   "@AUTHOR" ;
         dct:created "@CREATED" .
     `;
 
@@ -158,6 +164,12 @@ program.command("content-type <resource_url>")
     .alias("ct")
     .description("Write resource content-type to stdout.")
     .action(run_command(do_show_content_type))
+    ;
+
+program.command("make-container <parent_url> <container_name>")
+    .alias("mkc")
+    .description("Create empty container and write URI to stdout.")
+    .action(run_command(do_make_container))
     ;
 
 program.command("create-workset <container_url> <workset_name>")
@@ -341,6 +353,14 @@ function get_data_url(data_ref, base_url) {
     return String(new URL(data_ref, base_url));
 }
 
+function get_container_url(cont_ref, base_url) {
+    let cont_url = get_data_url(cont_ref, base_url);
+    if (!cont_url.endsWith('/')) {
+        cont_url += '/';
+    }
+    return cont_url;
+}
+
 function get_data_sequence(data_ref, content_type) {
     // Retrieve data refererenced by command line argument, and 
     // returns promise of data as byte or character sequence.
@@ -477,16 +497,18 @@ function get_node_URI(node) {
 
 function show_container_contents(response, container_ref) {
     // console.log(response.data);
-    let container_uri   = get_data_url(container_ref);
-    let container_graph = rdf.graph()
-    rdf.parse(response.data, container_graph, container_uri, response.headers["content-type"])
+    let container_uri   = get_container_url(container_ref);
+    let container_graph = rdf.graph();
+    rdf.parse(
+        response.data, container_graph, container_uri, response.headers["content-type"]
+        );
     let container_contents = container_graph.each(
         rdf.sym(container_uri),
         rdf.sym('http://www.w3.org/ns/ldp#contains'),
         undefined);
     var contents_uris = container_contents.map(get_node_URI)
     contents_uris.forEach(uri => {
-        console.log(uri)
+        console.log(uri);
     })
     return response;    
 }
@@ -871,10 +893,37 @@ function do_test_is_container(resource_ref) {
     return p;
 }
 
+function make_empty_container(parent_url, coname, template) {
+    let container_body = template
+        .replace("@AUTHOR",  AUTHOR)
+        .replace("@CREATED", DATE)
+        ;
+    let container_data = prefixes + container_body;
+    let header_data = {
+        "content-type": 'text/turtle',
+        "link":         `<${LDP_BASIC_CONTAINER}>; rel="type"`,
+        "slug":         coname,
+    }
+    return create_resource(parent_url, header_data, container_data);
+}
+
+function do_make_container(parent_url, coname) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Create container %s in parent %s', coname, parent_url);
+    let p = make_empty_container(parent_url, coname, co_template)
+        .then(location => { console.log(location); return location; })
+        .catch(error   => report_error(error,  "Make container error"))
+        .then(location => process_exit(status, "Make container OK"))
+        ;
+    return p;
+}
+
 function do_create_workset(parent_url, wsname) {
     let status = EXIT_SUCCESS;
     get_config();
     console.error('Create workset %s in container %s', wsname, parent_url);
+    // @@TODO: use make_empty_container
     //  Assemble workset container data
     let container_body = ws_template
         .replace("@AUTHOR",  AUTHOR)

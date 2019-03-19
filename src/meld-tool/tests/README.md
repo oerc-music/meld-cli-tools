@@ -7,9 +7,9 @@ Alternative plans for test environment:
 - Javascript driver needs way to capture stdout and exit status (note calls to exit())
     - https://github.com/BlueOtterSoftware/capture-stdout/blob/master/capture-stdout.js
 
-Currently going with shell scripts running command line tool, and checking output and/or return status
+Currently going with shell scripts running command line tool, and checking output and/or return status.
 
-.
+
 ## Tests
 
 @@@
