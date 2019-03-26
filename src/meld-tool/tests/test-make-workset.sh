@@ -55,8 +55,6 @@ fi
 rm container-expect-content.tmp
 
 
-
-
 if [ $EXITSTATUS -eq 0 ]; then
     node $MELD_TOOL remove-resource $CONTAINER_PATH
     test_sts $? "remove-resource exit status"

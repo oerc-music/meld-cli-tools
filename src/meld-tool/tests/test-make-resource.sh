@@ -33,9 +33,37 @@ if [ $EXITSTATUS -eq 0 ]; then
     EXITSTATUS=$?
 fi
 
+if [ $EXITSTATUS -eq 0 ]; then
+    node $MELD_TOOL test-is-container $RESOURCE_PATH
+    test_sts_eq $? 6 "test-is-container"
+    EXITSTATUS=$?
+fi
+
 # Test resource content using test command
 
-#@@TODO
+cat >test-make-resource-expect-content.tmp <<EOF
+test resource line 2
+test resource last line
+EOF
+
+if [ $EXITSTATUS -eq 0 ]; then
+    $(node $MELD_TOOL \
+        --stdinurl=https://localhost:8443/public/ \
+        test-text-resource $RESOURCE_PATH - \
+        <test-make-resource-expect-content.tmp  \
+        )
+    test_sts $? "resource-text-content"
+    EXITSTATUS=$?
+fi
+
+if [ $EXITSTATUS -eq 0 ]; then
+    RESOURCE_CONTENT_TYPE=$(node $MELD_TOOL content-type $RESOURCE_PATH)
+    test_sts $? "show-content-type" \
+      && test_eq "$RESOURCE_CONTENT_TYPE" "text/plain"
+    EXITSTATUS=$?
+fi
+
+rm test-make-resource-expect-content.tmp
 
 # Remove test resource and check content
 

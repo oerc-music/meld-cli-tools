@@ -31,15 +31,16 @@ const LDP_BASIC_CONTAINER = "http://www.w3.org/ns/ldp#BasicContainer";
 const LDP_RESOURCE        = "http://www.w3.org/ns/ldp#Resource";
 
 // https://stackoverflow.com/questions/1101957/are-there-any-standard-exit-status-codes-in-linux
-const EXIT_SUCCESS      = 0;    // Success
-const EXIT_GENERAL_FAIL = 1;    // Unspecified error
-const EXIT_COMMAND_ERR  = 2;    // Command usage error
-const EXIT_NOT_FOUND    = 3;    // HTTP 404, etc.
-const EXIT_PERMISSION   = 4;    // No permission for operation
-const EXIT_REDIRECT     = 5;    // Redirect
-                                //
-const EXIT_HTTP_ERR     = 9;    // Other HTTP failure codes
-const EXIT_CONTENT      = 10;   // No content match (test case failure)
+const EXIT_SUCCESS       = 0;    // Success
+const EXIT_GENERAL_FAIL  = 1;    // Unspecified error
+const EXIT_COMMAND_ERR   = 2;    // Command usage error
+const EXIT_NOT_FOUND     = 3;    // HTTP 404, etc.
+const EXIT_PERMISSION    = 4;    // No permission for operation
+const EXIT_REDIRECT      = 5;    // Redirect
+const EXIT_NOT_CONTAINER = 6;    // Not a container
+                                 //
+const EXIT_HTTP_ERR      = 9;    // Other HTTP failure codes
+const EXIT_CONTENT       = 10;   // No content match (test case failure)
 
 /*
  * Use process.env for environment variables.
@@ -606,11 +607,12 @@ function check_status(response) {
 }
 
 function check_type_turtle(response) {
+    // Throw error if response content-type is not Turtle
     if (response.headers["content-type"] != "text/turtle") {
-        console.error(response.status+": "+response.statusText);
-        console.error("Response headers: ");
+        console_debug(response.status+": "+response.statusText);
+        console_debug("Response headers: ");
         for (let h in response.headers) {
-            console.error("%s: %s", h, response.headers[h]);
+            console_debug("%s: %s", h, response.headers[h]);
         }
         show_response_status(response);
         throw new Error(`Content-type ${response.headers["content-type"]}`);
@@ -913,16 +915,19 @@ function do_test_is_container(resource_ref) {
     console.error('Test resource is container %s', resource_ref);
     let resource_url = get_data_url(resource_ref);
     let request_rdf  = null;
+    let request_any  = null;
+    let save_token   = null;
     let p = get_auth_token(...get_auth_params())
-        .then(token    => { request_rdf = ldp_request_rdf(token); })
-        .then(()       => request_rdf.get(resource_url))
+        .then(token    => save_token = token )
+        .then(()       => ldp_request(save_token).get(resource_url))
         .then(response => check_type_turtle(response))
-        .then(()       => request_rdf.get(resource_url))
+        .catch(error   => process_exit(EXIT_NOT_CONTAINER, "Resource is not Turtle"))
+        .then(()       => ldp_request_rdf(save_token).get(resource_url))
         .then(response => show_response_status(response))
         .then(response => check_status(response))
         .then(response => test_response_is_container(response, resource_url))
-        .catch(error   => report_error(error,  "Test resource is container error"))
-        .then(status   => process_exit(status, "Test resource is container"))
+        .catch(error   => process_exit(EXIT_NOT_CONTAINER, "Resource is not a container"))
+        .then(status   => process_exit(status, "Resource is container"))
         ;
     return p;
 }

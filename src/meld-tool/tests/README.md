@@ -17,8 +17,6 @@ Currently going with shell scripts running command line tool, and checking outpu
         Add fragment to working set and write fragment URI to stdout.
   add-annotation|adan <container_url> <target> <body> <motivation>  
         Add annotation to a container, and write allocated URI to stdout.
-  test-text-resource <resource_url> [expect_ref]                    
-        Test resource contains text in data (or --literal values).
 @@@
 
 
@@ -26,7 +24,7 @@ Currently going with shell scripts running command line tool, and checking outpu
 - [x] Test help
 - [x] Test URL resolution
 - [x] Test create workset
-- [ ] Test text resource content testing
+- [x] Test text resource content testing
 - [x] Test RDF resource content testing
 - [ ] Test show workset resource
 - [ ] Test fragment creation, access and removal

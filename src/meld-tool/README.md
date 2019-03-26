@@ -27,9 +27,9 @@
 
 - [.] Complete test suite for above
 
-- [ ] Look at more SOFA-spoecific capabilities (e.g. match services)
+- [ ] Look at more SOFA-specific capabilities (e.g. match services)
 
-- [ ] default for author when creating a workset/container/annotation? (how?)
+- [x] default for author when creating a workset/container/annotation? (how?)
     - see environment $NAME (MacOS only?) / $USER
     - Linux: `getent passwd "$USER" | cut -d ':' -f 5 | cut -d ',' -f 1`
     - Currently relying on environment variable set in `$HOME/.meld-tool/solid-auth.sh`

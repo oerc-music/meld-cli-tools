@@ -1,10 +1,17 @@
+source ~/.nvm/nvm.sh
+source ~/.nvm/bash_completion
+
+[ -s ~/.meld_tool/solid_auth.sh ] && source ~/.meld_tool/solid_auth.sh
+
+export SOLID_CERTS=~/solid-certs
+export NODE_EXTRA_CA_CERTS=$SOLID_CERTS/localhost.crt
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+
 export MELD_TOOL_DIR="$(pwd)/../"
 export MELD_TOOL="${MELD_TOOL_DIR}meld_tool.js"
 export MELD_HOST_URL="https://localhost:8443"
 export MELD_BASE_PATH="/public/"
 export MELD_BASE_URL="${MELD_HOST_URL}${MELD_BASE_PATH}"
-
-[ -s ~/.meld_tool/solid_auth.sh ] && source ~/.meld_tool/solid_auth.sh
 
 if [[ "$MELD_USERNAME" == "" ]]; then
     echo "Environment variable MELD_USERNAME not defined"
@@ -32,6 +39,18 @@ function test_sts {
         return 0
     fi
     echo "${2:-non-success exit status}: $1"
+    return $1
+}
+
+function test_sts_eq {
+    # Check for specific exit status
+    # $1 is status value
+    # $2 is expected status value
+    # $3 is message
+    if [[ $1 == $2 ]]; then
+        return 0
+    fi
+    echo "${3:-exit status}: status $1, expected: $2"
     return $1
 }
 
