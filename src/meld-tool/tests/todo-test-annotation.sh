@@ -86,8 +86,8 @@ fi
 cat >annotation-body-content.tmp <<EOF
 @prefix ldp: <http://www.w3.org/ns/ldp#>.
 <https://localhost:8443/annotation2/body>
-    <p1> <o1> ;
-    <p2> <o2> ;
+    <https://localhost:8443/annotation2/p1> <https://localhost:8443/annotation2/o1> ;
+    <https://localhost:8443/annotation2/p2> <https://localhost:8443/annotation2/o2> ;
     .
 EOF
 
@@ -118,22 +118,56 @@ cat >annotation2-expect-rdf.tmp <<EOF
     @prefix ninre: <http://remix.numbersintonotes.net/vocab#> .
 
     <> a oa:Annotation ;
-        oa:hasTarget   <test-target> ;
-        oa:hasBody     <body> ;
-        oa:motivatedBy <test-motivation> ;
+        oa:hasTarget   <test-target2> ;
+        oa:hasBody     <https://localhost:8443/annotation2/body> ;
+        oa:motivatedBy <test-motivation2> ;
         .
-    <body>
-        <p1> <o1> ;
-        <p2> <o2> ;
+    <https://localhost:8443/annotation2/body>
+        <https://localhost:8443/annotation2/p1> <https://localhost:8443/annotation2/o1> ;
+        <https://localhost:8443/annotation2/p2> <https://localhost:8443/annotation2/o2> ;
         .
 EOF
 
 if [ $EXITSTATUS -eq 0 ]; then
-    node $MELD_TOOL --stdinurl="${ANNOTATION2_URL}" \
+    node $MELD_TOOL --stdinurl="${ANNOTATION2_URL}#" \
         test-rdf-resource ${ANNOTATION2_URL} - \
         <annotation2-expect-rdf.tmp
     test_sts $? "test-rdf-annotation (2)"
 fi
+
+
+# Add test-motivation1 annotation test-target1 -> annotation1/test-body1(https://localhost:8443/annotation1/test-body1) in container /public/test_annotation_container/
+# Created annotation (1) /public/test_annotation_container/test-target1.test-motivation1.test-body1.ttl
+# Show annotation RDF /public/test_annotation_container/test-target1.test-motivation1.test-body1.ttl
+# Add test-motivation2 annotation test-target2 -> -(https://localhost:8443/annotation2/body) in container /public/test_annotation_container/
+# Created annotation (2) /public/test_annotation_container/test-target2.test-motivation2.body.ttl
+# Test resource RDF /public/test_annotation_container/test-target2.test-motivation2.body.ttl
+
+# Statement '<https://localhost:8443/public/test_annotation_container/body> <https://localhost:8443/public/test_annotation_container/p1> <https://localhost:8443/public/test_annotation_container/o1> .' not found
+# Statement '<https://localhost:8443/public/test_annotation_container/body> <https://localhost:8443/public/test_annotation_container/p2> <https://localhost:8443/public/test_annotation_container/o2> .' not found
+# Statement '<https://localhost:8443/public/test_annotation_container/test-target2.test-motivation2.body.ttl> <http://www.w3.org/ns/oa#hasBody> <https://localhost:8443/public/test_annotation_container/body> .' not found
+# Statement '<https://localhost:8443/public/test_annotation_container/test-target2.test-motivation2.body.ttl> <http://www.w3.org/ns/oa#hasTarget> <https://localhost:8443/public/test_annotation_container/test-target> .' not found
+# Statement '<https://localhost:8443/public/test_annotation_container/test-target2.test-motivation2.body.ttl> <http://www.w3.org/ns/oa#motivatedBy> <https://localhost:8443/public/test_annotation_container/test-motivation> .' not found
+# Exit status: 10
+# test-rdf-annotation (2): 10
+
+# sasharissa:tests graham$ node $MELD_TOOL show-annotation /public/test_annotation_container/test-target2.test-motivation2.body.ttl
+# Show annotation RDF /public/test_annotation_container/test-target2.test-motivation2.body.ttl
+# @prefix : <#>.
+# @prefix n0: <https://localhost:8443/annotation2/>.
+# @prefix tes: <https://localhost:8443/public/test_annotation_container/>.
+# @prefix o: <http://www.w3.org/ns/oa#>.
+
+# n0:body tes:p1 tes:o1; tes:p2 tes:o2 .
+
+# <https://localhost:8443/public/test_annotation_container/test-target2.test-motivation2.body.ttl>
+#     a o:Annotation;
+#     o:hasBody n0:body;
+#     o:hasTarget tes:test-target2;
+#     o:motivatedBy tes:test-motivation2.
+
+
+
 
 rm annotation2-expect-rdf.tmp
 
