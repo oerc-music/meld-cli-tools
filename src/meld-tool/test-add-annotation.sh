@@ -19,9 +19,9 @@ echo "Full anotation URI is ${ANNOTATION_URI}"
 
 node meld_tool.js test-text-resource ${ANNOTATION_URL} - <<EOF
     <> a oa:Annotation ;
-      oa:hasTarget   <test-target> ;
-      oa:hasBody     <test-body> ;
-      oa:motivatedBy <test-motivation> .
+        oa:hasTarget   <test-target> ;
+        oa:hasBody     <test-body> ;
+        oa:motivatedBy <test-motivation> .
 EOF
 
 node meld_tool.js --stdinurl="${ANNOTATION_URL}" \

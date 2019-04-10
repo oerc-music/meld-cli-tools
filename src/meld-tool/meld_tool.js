@@ -63,14 +63,17 @@ var STDINURL = "http://currentprocess.localhost/stdin"  // May be overriden from
 //  ===================================================================
 
 var prefixes = `
-    @prefix ldp: <http://www.w3.org/ns/ldp#> .
-    @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    @prefix dc: <http://purl.org/dc/elements/> .
-    @prefix dct: <http://purl.org/dc/terms/> .
-    @prefix oa: <http://www.w3.org/ns/oa#> .
-    @prefix mo: <http://purl.org/ontology/mo/> .
-    @prefix frbr: <http://purl.org/vocab/frbr/core#> .
-    @prefix nin: <http://numbersintonotes.net/terms#> .
+    @prefix ldp:   <http://www.w3.org/ns/ldp#> .
+    @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+    @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+    @prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+    @prefix dc:    <http://purl.org/dc/elements/> .
+    @prefix dct:   <http://purl.org/dc/terms/> .
+    @prefix oa:    <http://www.w3.org/ns/oa#> .
+    @prefix as:    <http://www.w3.org/ns/activitystreams#> .
+    @prefix mo:    <http://purl.org/ontology/mo/> .
+    @prefix frbr:  <http://purl.org/vocab/frbr/core#> .
+    @prefix nin:   <http://numbersintonotes.net/terms#> .
     @prefix ninre: <http://remix.numbersintonotes.net/vocab#> .
     `;
 
@@ -89,7 +92,7 @@ var ws_template = `
 var fr_template = `
     <> a ninre:FragmentRef , ldp:Resource ;
       ninre:fragment <@FRAGURI> ;
-      dc:creator     "@AUTHOR";
+      dc:creator     "@AUTHOR" ;
       dct:created    "@CREATED" .
       `;
 
@@ -98,6 +101,17 @@ var an_template = `
       oa:hasTarget   <@TARGETURI> ;
       oa:hasBody     <@BODYURI> ;
       oa:motivatedBy <@MOTIVATION> .
+      `;
+
+// See: https://www.w3.org/TR/annotation-protocol/#container-representations
+// AnnotationCollection -> as:OrderedCollection, per anno.jsonld context
+var ac_template = `
+    <> a ldp:BasicContainer, ldp:Container, as:OrderedCollection ;
+      dc:creator     "@AUTHOR" ;
+      dct:created    "@CREATED" ;
+      dct:modified   "@CREATED" ;
+      as:totalItems  "0"^^xsd:nonNegativeInteger ;
+      rdfs:label     "Annotation container" .
       `;
 
 var basic_container = `
@@ -123,6 +137,7 @@ program.version('0.1.0')
         "Provide data literal(s) as alternative to input",
         collect_multiple, []
         )
+    .option("-x, --body-inline",         "Include annotation body content in annotation data")
     .option("-d, --debug",               "Generate additional progress or diagnostic output to stderr")
     .option("-v, --verbose",             "Generate more verbose output to stdout")
     // .option('-z, --baz [val]', 'baz [def]', 'def')
@@ -174,7 +189,7 @@ program.command("content-type <resource_url>")
     ;
 
 program.command("make-container <parent_url> <container_name>")
-    .alias("mkc")
+    .alias("mkco")
     .description("Create empty container and write URI to stdout.")
     .action(run_command(do_make_container))
     ;
@@ -191,10 +206,40 @@ program.command("add-fragment <workset_url> <fragment_url> <fragment_name>")
     .action(run_command(do_add_fragment))
     ;
 
+program.command("make-annotation-container <parent_url> <container_name>")
+    .alias("mkac")
+    .description("Create empty annotation container and write URI to stdout.")
+    .action(run_command(do_make_annotation_container))
+    ;
+
+program.command("show-annotation-container <container_url>")
+    .alias("lsan")
+    .description("List contents of annotation container to stdout.")
+    .action(run_command(do_show_annotation_container))
+    ;
+
 program.command("add-annotation <container_url> <target> <body> <motivation>")
     .alias("adan")
-    .description("Add annotation to a container, and write allocated URI to stdout.")
+    .description("Add annotation to a container, and write allocated URI to stdout. (old command)")
     .action(run_command(do_add_annotation))
+    ;
+
+program.command("make-annotation <container_url> <target> <body> <motivation>")
+    .alias("mkan")
+    .description("Make annotation and add to a container, and write allocated URI to stdout.")
+    .action(run_command(do_make_annotation))
+    ;
+
+// program.command("list-annotations <container_url>")
+//     .alias("lsan")
+//     .description("List annotations to stdout.")
+//     .action(run_command(do_list_annotations))
+//     ;
+
+program.command("show-annotation <annotation_url>")
+    .alias("shan")
+    .description("Show annotation (interpreted as RDF) to stdout.")
+    .action(run_command(do_show_annotation_rdf))
     ;
 
 program.command("test-login")
@@ -1010,7 +1055,35 @@ function do_add_fragment(workset_url, fragment_ref, fragment_name) {
         ;
     return p;
 }
-       
+
+function do_make_annotation_container(parent_url, acname) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Create annotation container %s in parent %s', acname, parent_url);
+    let p = make_empty_container(parent_url, acname, ac_template)
+        .then(location => { console.log(location); return location; })
+        .catch(error   => report_error(error,  "Make annotation container error"))
+        .then(location => process_exit(status, "Make annotation container OK"))
+        ;
+    return p;
+}
+
+// Currently same as list_container, but may change in future
+function do_show_annotation_container(container_uri) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Show annotation container %s', container_uri);
+    let p = get_auth_token(...get_auth_params())
+        .then(token    => ldp_request_rdf(token).get(container_uri)) 
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => show_container_contents(response, container_uri))
+        .catch(error   => report_error(error,  "Show annotation container error"))
+        .then(response => process_exit(status, "Show annotation container OK"))
+        ;
+    return p;
+}
+
 function do_add_annotation(container_url, target_ref, body_ref, motivation_ref) {
     let status = EXIT_SUCCESS;
     get_config();
@@ -1049,6 +1122,71 @@ function do_add_annotation(container_url, target_ref, body_ref, motivation_ref) 
     return p;
 }
 
+// `do_make_annotation`` is like `add_annotation`, except that the body_ref may
+// be "-", in which case the annotation body is read from stdin, and may
+// be included inline if `--body-inline` option is specified.
+// @@TODO: replace `add_annotation` when new logic is settled.
+function do_make_annotation(container_url, target_ref, body_ref, motivation_ref) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    let target_uri    = target_ref;
+    // let body_uri      = body_ref;
+    let motivation    = motivation_ref;
+    let body_data_url = get_data_url(body_ref)
+    console.error(
+        'Add %s annotation %s -> %s(%s) in container %s', 
+        motivation, target_uri, body_ref, body_data_url, container_url
+        );
+    //  Assemble annotation data
+    let annotation_ref  = 
+        url_slug(target_uri,    "@target")     + "." + 
+        url_slug(motivation,    "@motivation") + "." + 
+        url_slug(body_data_url, "@body");
+    let annotation_body = an_template
+        .replace("@TARGETURI",  target_uri)
+        .replace("@BODYURI",    body_data_url)
+        .replace("@MOTIVATION", motivation)
+        ;
+    // Create annotation
+    let header_data = {
+        "content-type": 'text/turtle',
+        "link":         `<${LDP_RESOURCE}>; rel="type"`,
+        "slug":         annotation_ref,
+    }
+    let body_data_promise ;
+    if (program.bodyInline) {
+        body_data_promise = get_data_sequence(body_ref)
+            .then(data => "\n" + data)
+            ;
+    }
+    else {
+        body_data_promise = Promise.resolve("");
+    }
+    let p = body_data_promise
+        .then(body_data => prefixes + annotation_body + body_data)
+        .then(ann_data  => create_resource(container_url, header_data, ann_data))
+        .then(location  => { console.log(location); return location; })
+        .catch(error    => report_error(error,  "Make annotation error"))
+        .then(location  => process_exit(status, "Make annotation OK"))
+        ;
+    return p;
+}
+
+// Currently same as `show_resource_rdf`, but may change
+function do_show_annotation_rdf(annotation_url) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Show annotation RDF %s', annotation_url);
+    let p = get_auth_token(...get_auth_params())
+        .then(token    => ldp_request_rdf(token).get(annotation_url)) 
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => show_response_data_rdf(response, annotation_url))
+        .catch(error   => report_error(error,  "Show annotation RDF error"))
+        .then(response => process_exit(status, "Show annotation RDF OK"))
+        ;
+    return p;
+}
 
 //  ===================================================================
 //

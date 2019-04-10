@@ -35,6 +35,7 @@ function test_sts {
     # Check for success exit status
     # $1 is status value
     # $2 is message
+    EXITSTATUS=$1
     if [[ $1 == 0 ]]; then
         return 0
     fi
@@ -47,6 +48,7 @@ function test_sts_eq {
     # $1 is status value
     # $2 is expected status value
     # $3 is message
+    EXITSTATUS=$1
     if [[ $1 == $2 ]]; then
         return 0
     fi
@@ -57,9 +59,11 @@ function test_sts_eq {
 function test_eq {
     # Compare $1 with $1, expect equality
     if [[ "$1" == "$2" ]]; then
+        EXITSTATUS=0
         return 0
     fi
     echo "${3:-test_eq failed} '$1' != '$2'"
+    EXITSTATUS=1
     return 1
 }
 
@@ -67,8 +71,22 @@ function test_in {
     # test $2 contained in $1
     # $3 is message
     if echo "$1" | grep --quiet "\($2\)"; then
+        EXITSTATUS=0
         return 0
     fi
     echo "${3:-test_in failed}: '$2' not found"
+    EXITSTATUS=1
     return 1
+}
+
+function test_not_in {
+    # test $2 not contained in $1
+    # $3 is message
+    if echo "$1" | grep --quiet "\($2\)"; then
+        echo "${3:-test_not_in failed}: '$2' found"
+        EXITSTATUS=1
+        return 1
+    fi
+    EXITSTATUS=0
+    return 0
 }
