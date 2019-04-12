@@ -28,6 +28,8 @@
 - [x] Complete test suite for above
 
 - [ ] Look at more SOFA-specific capabilities (e.g. match services)
+- [ ] Refactor to separate generic LDP, generic annotaton, generic MELD, and SOFA-spoecific options.
+- [ ] Rationalize commands (?)
 
 - [x] default for author when creating a workset/container/annotation? (how?)
     - see environment $NAME (MacOS only?) / $USER
@@ -72,6 +74,8 @@ Options:
         Identity provider for authentication (overrides MELD_IDPROVIDER environment variable)
   -l, --literal <data>                                              
         Provide data literal(s) as alternative to input (default: [])
+  -x, --body-inline
+        Include annotation body content in annotation data.
   -d, --debug                                                       
         Generate additional progress or diagnostic output to stderr
   -v, --verbose                                                     
@@ -81,32 +85,48 @@ Options:
 
 Commands:
   help [cmd]
-  full-url                                                          
+  full-url                                                                       
         Write fully qualified URL to stdout.
-  list-container|ls <container_url>                                 
+  list-container|ls <container_url>                                              
         List contents of container to stdout.
-  make-resource|mk <container_url> <resource_name> <content_type> [content_ref]
+  make-resource|mk <container_url> <resource_name> <content_type> [content_ref]  
         Create resource with specified type and content
-  show-resource|sh <resource_url>                                   
+  show-resource|sh <resource_url>                                                
         Write resource content to stdout.
-  remove-resource|rm <resource_url>                                 
+  show-resource-rdf|shrdf <resource_url>                                         
+        Write resource content interpreted as RDF to stdout.
+  remove-resource|rm <resource_url>                                              
         Remove resource from container.
-  content-type|ct <resource_url>
+  content-type|ct <resource_url>                                                 
         Write resource content-type to stdout.
-  make-workset|crws <container_url> <workset_name>                
+  make-container|mkco <parent_url> <container_name>                              
+        Create empty container and write URI to stdout.
+  make-workset|mkws <container_url> <workset_name>                               
         Create working set and write URI to stdout.
-  add-fragment|adfr <workset_url> <fragment_url> <fragment_name>    
+  add-fragment|adfr <workset_url> <fragment_url> <fragment_name>                 
         Add fragment to working set and write fragment URI to stdout.
-  add-annotation|adan <container_url> <target> <body> <motivation>  
-        Add annotation to a container, and write allocated URI to stdout.
-  test-login                                                        
+  make-annotation-container|mkac <parent_url> <container_name>                   
+        Create empty annotation container and write URI to stdout.
+  show-annotation-container|lsan <container_url>                                 
+        List contents of annotation container to stdout.
+  add-annotation|adan <container_url> <target> <body> <motivation>               
+        Add annotation to a container, and write allocated URI to stdout. (old command)
+  make-annotation|mkan <container_url> <target> <body> <motivation>              
+        Make annotation and add to a container, and write allocated URI to stdout.
+  show-annotation|shan <annotation_url>                                          
+        Show annotation (interpreted as RDF) to stdout.
+  remove-annotation|rman <annotation_url>                                        
+        Remove annotation from container.
+  test-login                                                                     
         Test login credentials and return access token.
-  test-text-resource <resource_url> [expect_ref]                    
+  test-text-resource <resource_url> [expect_ref]                                 
         Test resource contains text in data (or --literal values).
-  test-rdf-resource <resource_url> [expect_ref]                     
+  test-rdf-resource <resource_url> [expect_ref]                                  
         Test resource contains RDF statements (or --literal values).
-  test-is-container <resource_url>
+  test-is-container <resource_url>                                               
         Test resource is a container (non-zero exit status if not).
+  test-is-annotation <resource_url>                                              
+        Test resource is an annotation (non-zero exit status if not).
 ```
 
 ### Examples
