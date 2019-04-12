@@ -18,14 +18,14 @@
 - [x] "content-type" implementation
 - [x] "make-container" (not workset) implementation
 
-- [ ] "make-annotation-container" implementation
-- [ ] "show-annotation-container" implementation
-- [ ] "delete-annotation-container" implementation
+- [x] "make-annotation-container" implementation
+- [x] "show-annotation-container" implementation
+- [x] "remove-annotation-container" implementation
 - [x] "make-annotation" implementation
-- [ ] "show-annotation" implementation
-- [ ] "delete-annotation" implementation
+- [x] "show-annotation" implementation
+- [x] "remove-annotation" implementation
 
-- [.] Complete test suite for above
+- [x] Complete test suite for above
 
 - [ ] Look at more SOFA-specific capabilities (e.g. match services)
 

@@ -31,16 +31,17 @@ const LDP_BASIC_CONTAINER = "http://www.w3.org/ns/ldp#BasicContainer";
 const LDP_RESOURCE        = "http://www.w3.org/ns/ldp#Resource";
 
 // https://stackoverflow.com/questions/1101957/are-there-any-standard-exit-status-codes-in-linux
-const EXIT_SUCCESS       = 0;    // Success
-const EXIT_GENERAL_FAIL  = 1;    // Unspecified error
-const EXIT_COMMAND_ERR   = 2;    // Command usage error
-const EXIT_NOT_FOUND     = 3;    // HTTP 404, etc.
-const EXIT_PERMISSION    = 4;    // No permission for operation
-const EXIT_REDIRECT      = 5;    // Redirect
-const EXIT_NOT_CONTAINER = 6;    // Not a container
+const EXIT_SUCCESS        = 0;   // Success
+const EXIT_GENERAL_FAIL   = 1;   // Unspecified error
+const EXIT_COMMAND_ERR    = 2;   // Command usage error
+const EXIT_NOT_FOUND      = 3;   // HTTP 404, etc.
+const EXIT_PERMISSION     = 4;   // No permission for operation
+const EXIT_REDIRECT       = 5;   // Redirect
+const EXIT_NOT_CONTAINER  = 6;   // Not a container
+const EXIT_NOT_ANNOTATION = 7;   // Not a container
                                  //
-const EXIT_HTTP_ERR      = 9;    // Other HTTP failure codes
-const EXIT_CONTENT       = 10;   // No content match (test case failure)
+const EXIT_HTTP_ERR       = 9;   // Other HTTP failure codes
+const EXIT_CONTENT        = 10;  // No content match (test case failure)
 
 /*
  * Use process.env for environment variables.
@@ -118,6 +119,12 @@ var basic_container = `
     <> a ldp:BasicContainer, ldp:Container .
     `;
 
+var basic_annotation = `
+    <> a oa:Annotation ;
+      oa:hasTarget   _:t ;
+      oa:hasBody     _:b ;
+      oa:motivatedBy _:m .
+    `;
 
 //  ===================================================================
 //
@@ -242,6 +249,12 @@ program.command("show-annotation <annotation_url>")
     .action(run_command(do_show_annotation_rdf))
     ;
 
+program.command("remove-annotation <annotation_url>")
+    .alias("rman")
+    .description("Remove annotation from container.")
+    .action(run_command(do_remove_annotation))
+    ;
+
 program.command("test-login")
     .description("Test login credentials and return access token.")
     .action(run_command(do_test_login))
@@ -260,6 +273,11 @@ program.command("test-rdf-resource <resource_url> [expect_ref]")
 program.command("test-is-container <resource_url>")
     .description("Test resource is a container (non-zero exit status if not).")
     .action(run_command(do_test_is_container))
+    ;
+
+program.command("test-is-annotation <resource_url>")
+    .description("Test resource is an annotation (non-zero exit status if not).")
+    .action(run_command(do_test_is_annotation))
     ;
 
 // program.command("*")
@@ -727,11 +745,14 @@ function test_data_contains_rdf(data, data_url, content_type, expect_graph, expe
     let actual_graph = parse_rdf(data, content_type, data_url);
     console_debug("---- Actual graph: url %s", data_url);
     console_debug("\n%s\n----", 
-        rdf.serialize(undefined, actual_graph, data_url, 'text/turtle')
+        rdf.serialize(undefined, actual_graph, "http://data_url", 'text/turtle')
         );
     console_debug("----");
     for (var st of expect_graph.match()) {
-        let st_found = actual_graph.match(st.subject, st.predicate, st.object, undefined);
+        // Treat blank node subject/object as wildcard
+        let subj_match = (st.subject.termType == rdf.BlankNode.termType ? null : st.subject);
+        let obj_match  = (st.object.termType  == rdf.BlankNode.termType ? null : st.object);
+        let st_found = actual_graph.match(subj_match, st.predicate, obj_match, undefined);
         if (!st_found.length) {
             missing_cb(st);
             console_debug("Statement '%s' not found", st.toString());
@@ -760,10 +781,35 @@ function test_response_data_rdf(response, resource_url, expect_ref) {
 }
 
 function test_response_is_container(response, resource_url) {
-    // Test response includes specified RDF statements
+    // Test response includes RDF statements characteristic of being a container
     // Returns promise of exit status code
     let expect_data = prefixes + basic_container
     let p = Promise.resolve(parse_rdf(expect_data, "text/turtle", resource_url))
+        .then(expect_graph => test_data_contains_rdf(
+                response.data, resource_url, response.headers["content-type"], 
+                expect_graph, resource_url,
+                (st => { return; })
+            )
+        )
+        .then(status => { console.error("Exit status: "+status); return status; })
+        ;
+    return p; 
+}
+
+function test_response_is_annotation(response, resource_url) {
+    // Test response includes RDF statements characteristic of being an annotation
+    // Returns promise of exit status code
+    let expect_data = prefixes + basic_annotation;
+    console_debug("---- expect_data:\n%s\n----", expect_data);
+    let p = Promise.resolve(parse_rdf(expect_data, "text/turtle", resource_url))
+        .then(expect_graph => { 
+                console_debug("---- expect_graph %s", resource_url) ;
+                console_debug("\n%s\n----", 
+                    rdf.serialize(undefined, expect_graph, resource_url, 'text/turtle')
+                    ) ;
+                return expect_graph ; 
+            }
+        )
         .then(expect_graph => test_data_contains_rdf(
                 response.data, resource_url, response.headers["content-type"], 
                 expect_graph, resource_url,
@@ -979,8 +1025,8 @@ function do_test_is_container(resource_ref) {
 
 function make_empty_container(parent_url, coname, template) {
     let container_body = template
-        .replace("@AUTHOR",  AUTHOR)
-        .replace("@CREATED", DATE)
+        .replace(/@AUTHOR/g,  AUTHOR)
+        .replace(/@CREATED/g, DATE)
         ;
     let container_data = prefixes + container_body;
     let header_data = {
@@ -1010,8 +1056,8 @@ function do_make_workset(parent_url, wsname) {
     // @@TODO: use make_empty_container
     //  Assemble workset container data
     let container_body = ws_template
-        .replace("@AUTHOR",  AUTHOR)
-        .replace("@CREATED", DATE)
+        .replace(/@AUTHOR/g,  AUTHOR)
+        .replace(/@CREATED/g, DATE)
         ;
     let container_data = prefixes + container_body;
     let header_data = {
@@ -1038,9 +1084,9 @@ function do_add_fragment(workset_url, fragment_ref, fragment_name) {
     //  Assemble workset container data
     let fragment_uri  = get_data_url(fragment_ref);
     let fragment_body = fr_template
-        .replace("@FRAGURI", fragment_uri)
-        .replace("@AUTHOR",  AUTHOR)
-        .replace("@CREATED", DATE)
+        .replace(/@FRAGURI/g, fragment_uri)
+        .replace(/@AUTHOR/g,  AUTHOR)
+        .replace(/@CREATED/g, DATE)
         ;
     let fragment_data = prefixes + fragment_body;
     let header_data = {
@@ -1172,6 +1218,32 @@ function do_make_annotation(container_url, target_ref, body_ref, motivation_ref)
     return p;
 }
 
+function do_test_is_annotation(resource_ref) {
+    // Tests that the indicated resource is an annotation
+    //
+    // resource_ref     is URL of resource to be tested.
+    //
+    get_config();
+    console.error('Test resource is annotation %s', resource_ref);
+    let resource_url = get_data_url(resource_ref);
+    let request_rdf  = null;
+    let request_any  = null;
+    let save_token   = null;
+    let p = get_auth_token(...get_auth_params())
+        .then(token    => save_token = token )
+        .then(()       => ldp_request(save_token).get(resource_url))
+        .then(response => check_type_turtle(response))
+        .catch(error   => process_exit(EXIT_NOT_ANNOTATION, "Resource is not Turtle"))
+        .then(()       => ldp_request_rdf(save_token).get(resource_url))
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(response => test_response_is_annotation(response, resource_url))
+        .catch(error   => process_exit(EXIT_NOT_ANNOTATION, "Resource is not a annotation"))
+        .then(status   => process_exit(status, "Resource is annotation"))
+        ;
+    return p;
+}
+
 // Currently same as `show_resource_rdf`, but may change
 function do_show_annotation_rdf(annotation_url) {
     let status = EXIT_SUCCESS;
@@ -1184,6 +1256,21 @@ function do_show_annotation_rdf(annotation_url) {
         .then(response => show_response_data_rdf(response, annotation_url))
         .catch(error   => report_error(error,  "Show annotation RDF error"))
         .then(response => process_exit(status, "Show annotation RDF OK"))
+        ;
+    return p;
+}
+
+// Currently same as `do_remove_resource`, but may change
+function do_remove_annotation(annotation_uri) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Remove annotation %s', annotation_uri);
+    let p = get_auth_token(...get_auth_params())
+        .then(token    => ldp_request(token).delete(annotation_uri))
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .catch(error   => report_error(error,  "Remove annotation error"))
+        .then(response => process_exit(status, "Remove annotation OK"))
         ;
     return p;
 }

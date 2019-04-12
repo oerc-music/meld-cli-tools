@@ -3,35 +3,35 @@ EXITSTATUS=0
 if [ $EXITSTATUS -eq 0 ]; then
     CONTAINER_PATH=$(node $MELD_TOOL make-annotation-container $MELD_BASE_PATH test_annotation_container)
     test_sts $? "make-annotation-container" \
-      && test_eq "$CONTAINER_PATH" "${MELD_BASE_PATH}test_annotation_container/" "make-annotation-container"
+      && test_eq "${CONTAINER_PATH}" "${MELD_BASE_PATH}test_annotation_container/" "make-annotation-container"
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
     PUBLIC_CONTENT=$(node $MELD_TOOL show-annotation-container $MELD_BASE_PATH)
     test_sts $? "show-annotation-container" \
-      && test_in "$PUBLIC_CONTENT" "$CONTAINER_PATH" "show-annotation-container"
+      && test_in "$PUBLIC_CONTENT" "${CONTAINER_PATH}" "show-annotation-container"
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
-    node $MELD_TOOL test-is-container $CONTAINER_PATH
+    node $MELD_TOOL test-is-container ${CONTAINER_PATH}
     test_sts $? "test-is-container"
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
-    CONTAINTER_CONTENT_TYPE=$(node $MELD_TOOL content-type $CONTAINER_PATH)
+    CONTAINTER_CONTENT_TYPE=$(node $MELD_TOOL content-type ${CONTAINER_PATH})
     test_sts $? "show-content-type" \
       && test_eq "$CONTAINTER_CONTENT_TYPE" "text/turtle"
 fi
 
 # if [ $EXITSTATUS -eq 0 ]; then
-#     node $MELD_TOOL show-resource-rdf $CONTAINER_PATH
+#     node $MELD_TOOL show-resource-rdf ${CONTAINER_PATH}
 #     test_sts $? "show-resource-rdf exit status"
 #     EXITSTATUS=$?
 # fi
 
 cat >annotation-container-expect-content.tmp <<EOF
 @prefix ldp: <http://www.w3.org/ns/ldp#>.
-<$CONTAINER_PATH>
+<${CONTAINER_PATH}>
     a ldp:BasicContainer, ldp:Container;
     .
 EOF
@@ -39,7 +39,7 @@ EOF
 if [ $EXITSTATUS -eq 0 ]; then
     node $MELD_TOOL \
         --stdinurl=https://localhost:8443/public/ \
-        test-rdf-resource $CONTAINER_PATH - \
+        test-rdf-resource ${CONTAINER_PATH} - \
         <annotation-container-expect-content.tmp
     test_sts $? "container-content" \
       && test_eq "$CONTAINTER_CONTENT_TYPE" "text/turtle"
@@ -59,26 +59,29 @@ rm annotation-container-expect-content.tmp
 # Make annotation 1
 
 if [ $EXITSTATUS -eq 0 ]; then
-    # echo "@@@@"
-    # echo "$MELD_TOOL \
-    #     make-annotation ${CONTAINER_PATH} \
-    #     test-target1 annotation1/test-body1 test-motivation1"
     ANNOTATION1_URL=$(node $MELD_TOOL \
         make-annotation ${CONTAINER_PATH} \
         test-target1 annotation1/test-body1 test-motivation1)
     test_sts $? "make-annotation (1)" \
-        && test_eq "$ANNOTATION1_URL" "${MELD_BASE_PATH}test_annotation_container/test-target1.test-motivation1.test-body1.ttl"
+        && test_eq "${ANNOTATION1_URL}" "${MELD_BASE_PATH}test_annotation_container/test-target1.test-motivation1.test-body1.ttl"
     echo "Created annotation (1) ${ANNOTATION1_URL}"
+fi
+
+if [ $EXITSTATUS -eq 0 ]; then
+    node $MELD_TOOL \
+        test-is-annotation ${ANNOTATION1_URL}
+    test_sts $? "test-is-annotation (1)"
+    echo "Tested annotation (1) ${ANNOTATION1_URL}"
 fi
 
 # Show annotation 1
 
 if [ $EXITSTATUS -eq 0 ]; then
-    ANNOTATION1_CONTENT=$(node $MELD_TOOL show-annotation $ANNOTATION1_URL)
+    ANNOTATION1_CONTENT=$(node $MELD_TOOL show-annotation ${ANNOTATION1_URL})
     test_sts $? "show-annotation (1)" \
-      && test_in "$ANNOTATION1_CONTENT" "test-target1"     "show-annotation (1)" \
-      && test_in "$ANNOTATION1_CONTENT" "test-body1"       "show-annotation (1)" \
-      && test_in "$ANNOTATION1_CONTENT" "test-motivation1" "show-annotation (1)"
+      && test_in "${ANNOTATION1_CONTENT}" "test-target1"     "show-annotation (1)" \
+      && test_in "${ANNOTATION1_CONTENT}" "test-body1"       "show-annotation (1)" \
+      && test_in "${ANNOTATION1_CONTENT}" "test-motivation1" "show-annotation (1)"
 fi
 
 # Make annotation 2
@@ -98,11 +101,18 @@ if [ $EXITSTATUS -eq 0 ]; then
         test-target2 - test-motivation2 \
         < annotation-body-content.tmp)
     test_sts $? "make-annotation (2)" \
-        && test_eq "$ANNOTATION2_URL" "${MELD_BASE_PATH}test_annotation_container/test-target2.test-motivation2.body.ttl"
+        && test_eq "${ANNOTATION2_URL}" "${MELD_BASE_PATH}test_annotation_container/test-target2.test-motivation2.body.ttl"
     echo "Created annotation (2) ${ANNOTATION2_URL}"
 fi
 
 rm annotation-body-content.tmp
+
+if [ $EXITSTATUS -eq 0 ]; then
+    node $MELD_TOOL \
+        test-is-annotation ${ANNOTATION2_URL}
+    test_sts $? "test-is-annotation (2)"
+    echo "Tested annotation (2) ${ANNOTATION2_URL}"
+fi
 
 # Show annotation 2
 
@@ -135,77 +145,43 @@ if [ $EXITSTATUS -eq 0 ]; then
     test_sts $? "test-rdf-annotation (2)"
 fi
 
-
-# Add test-motivation1 annotation test-target1 -> annotation1/test-body1(https://localhost:8443/annotation1/test-body1) in container /public/test_annotation_container/
-# Created annotation (1) /public/test_annotation_container/test-target1.test-motivation1.test-body1.ttl
-# Show annotation RDF /public/test_annotation_container/test-target1.test-motivation1.test-body1.ttl
-# Add test-motivation2 annotation test-target2 -> -(https://localhost:8443/annotation2/body) in container /public/test_annotation_container/
-# Created annotation (2) /public/test_annotation_container/test-target2.test-motivation2.body.ttl
-# Test resource RDF /public/test_annotation_container/test-target2.test-motivation2.body.ttl
-
-# Statement '<https://localhost:8443/public/test_annotation_container/body> <https://localhost:8443/public/test_annotation_container/p1> <https://localhost:8443/public/test_annotation_container/o1> .' not found
-# Statement '<https://localhost:8443/public/test_annotation_container/body> <https://localhost:8443/public/test_annotation_container/p2> <https://localhost:8443/public/test_annotation_container/o2> .' not found
-# Statement '<https://localhost:8443/public/test_annotation_container/test-target2.test-motivation2.body.ttl> <http://www.w3.org/ns/oa#hasBody> <https://localhost:8443/public/test_annotation_container/body> .' not found
-# Statement '<https://localhost:8443/public/test_annotation_container/test-target2.test-motivation2.body.ttl> <http://www.w3.org/ns/oa#hasTarget> <https://localhost:8443/public/test_annotation_container/test-target> .' not found
-# Statement '<https://localhost:8443/public/test_annotation_container/test-target2.test-motivation2.body.ttl> <http://www.w3.org/ns/oa#motivatedBy> <https://localhost:8443/public/test_annotation_container/test-motivation> .' not found
-# Exit status: 10
-# test-rdf-annotation (2): 10
-
-# sasharissa:tests graham$ node $MELD_TOOL show-annotation /public/test_annotation_container/test-target2.test-motivation2.body.ttl
-# Show annotation RDF /public/test_annotation_container/test-target2.test-motivation2.body.ttl
-# @prefix : <#>.
-# @prefix n0: <https://localhost:8443/annotation2/>.
-# @prefix tes: <https://localhost:8443/public/test_annotation_container/>.
-# @prefix o: <http://www.w3.org/ns/oa#>.
-
-# n0:body tes:p1 tes:o1; tes:p2 tes:o2 .
-
-# <https://localhost:8443/public/test_annotation_container/test-target2.test-motivation2.body.ttl>
-#     a o:Annotation;
-#     o:hasBody n0:body;
-#     o:hasTarget tes:test-target2;
-#     o:motivatedBy tes:test-motivation2.
-
-
-
-
 rm annotation2-expect-rdf.tmp
 
 # List annotations
 
 if [ $EXITSTATUS -eq 0 ]; then
-    CONTAINER_CONTENT=$(node $MELD_TOOL show-annotation-container $CONTAINER_PATH)
+    CONTAINER_CONTENT=$(node $MELD_TOOL show-annotation-container ${CONTAINER_PATH})
     test_sts $? "show-annotation-container" \
-      && test_in "$CONTAINER_CONTENT" "$ANNOTATION1_URL" "show-annotation-container" \
-      && test_in "$CONTAINER_CONTENT" "$ANNOTATION2_URL" "show-annotation-container"
+      && test_in "${CONTAINER_CONTENT}" "${ANNOTATION1_URL}" "show-annotation-container" \
+      && test_in "${CONTAINER_CONTENT}" "${ANNOTATION2_URL}" "show-annotation-container"
 fi
 
 # Remove annotation
 
 if [ $EXITSTATUS -eq 0 ]; then
-    node $MELD_TOOL remove-annotation $ANNOTATION1_URL
+    node $MELD_TOOL remove-annotation ${ANNOTATION1_URL}
     test_sts $?
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
-    node $MELD_TOOL remove-annotation $ANNOTATION2_URL
+    node $MELD_TOOL remove-annotation ${ANNOTATION2_URL}
     test_sts $?
 fi
 
 # List annotations
 
 if [ $EXITSTATUS -eq 0 ]; then
-    CONTAINER_CONTENT=$(node $MELD_TOOL show-annotation-container $CONTAINER_PATH)
+    CONTAINER_CONTENT=$(node $MELD_TOOL show-annotation-container ${CONTAINER_PATH})
     test_sts $? "show-annotation-container" \
-      && test_not_in "$CONTAINER_CONTENT" "$ANNOTATION1_URL" "show-annotation-container" \
-      && test_not_in "$CONTAINER_CONTENT" "$ANNOTATION2_URL" "show-annotation-container"
+      && test_not_in "${CONTAINER_CONTENT}" "${ANNOTATION1_URL}" "show-annotation-container" \
+      && test_not_in "${CONTAINER_CONTENT}" "${ANNOTATION2_URL}" "show-annotation-container"
 fi
 
 # Remove annotation container
 
 if [ $EXITSTATUS -eq 0 ]; then
-    node $MELD_TOOL remove-annotation-container $CONTAINER_PATH
-    test_sts $? "remove-annotation-container exit status"
+    node $MELD_TOOL remove-resource ${CONTAINER_PATH}
+    test_sts $? "remove-resource (annotation container) exit status"
 fi
 
 return $EXITSTATUS
