@@ -156,6 +156,9 @@ if [ $EXITSTATUS -eq 0 ]; then
       && test_in "${CONTAINER_CONTENT}" "${ANNOTATION2_URL}" "show-annotation-container"
 fi
 
+
+return #@@@@@@@@
+
 # Remove annotation
 
 if [ $EXITSTATUS -eq 0 ]; then

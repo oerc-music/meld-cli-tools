@@ -169,6 +169,8 @@ or
 
 (These commands suspend certificate checking by the solid server, and should not be used in production.  They are needed because the Solid server uses HTTP transactions internally for some operations.)
 
+NOTE: althrough the server may be running at this point, you will still need to set up the needed LDP containmer structures. See below for details.
+
 
 ## Run as a basic LDP server (without authentication)
 
@@ -221,6 +223,8 @@ Browse to https://localhost:8443/.  Ignore/override security warnings.  I'm usin
 
 Click on "Register". Fill in details, click "register".
 
+(NOTE: if you don't see a "register" button, it is possible that this is because you have `"webid": false,` in the `config.json` file.  Try setting it to `"webid": true,` to perform the initial userregistration.  Later, you may need to change it back in order to have read/write access to the LDP containers.)
+
 "Public homepage" is displayed.
 
 Click on "WebID" link.  Page with name is displayed, but none of the data entered at registration.  Tried "back" button, but nothing happens.
@@ -248,9 +252,17 @@ At this point, console log looks like this:
       solid:get /profile/card on localhost +58s
       solid:get    sending data browser file: /Users/graham/solid/node_modules/solid-server/static/databrowser.html +1ms
 
+About this point, I ran into some strange errors, that seemed to be caused by incorrect data stored in the browser.  Clearing history and cache was not sufficient to clear these problems, but I also needed to use developer tool;s to clear out browser imernal storage created by the Solid server (e.g. see [1] [2])
+
+[1] https://github.com/solid/node-solid-server/issues/1093
+
+[2] https://github.com/solid/node-solid-server/issues/1094
+
+
 
 ## Other errors...
 
+Trying to access non-RDF data as RDF can cause 500 server errors:
 
     $ curl -vk -H "accept: text/turtle" https://localhost:8443/
     *   Trying ::1...
@@ -393,6 +405,6 @@ https://blog.filippo.io/mkcert-valid-https-certificates-for-localhost/
 
 ## Other stuff
 
-
+https://github.com/solid/node-solid-server/issues/1093 - discussion about problems of accessing WebID profile after login.
 
 
