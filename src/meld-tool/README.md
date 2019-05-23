@@ -36,6 +36,13 @@
     - Linux: `getent passwd "$USER" | cut -d ':' -f 5 | cut -d ',' -f 1`
     - Currently relying on environment variable set in `$HOME/.meld-tool/solid-auth.sh`
 
+- [ ] Provide indication if a request is redirected?
+- [ ] Run without command show (some) help text
+- [ ] Test annotation not fully cleaning up
+- [ ] Apply unescaping to supplied URI
+        - need some experiments to understand what happens with non-uri characters
+
+
 ## Prerequisites
 
     npm install commander

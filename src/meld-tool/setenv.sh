@@ -11,4 +11,4 @@ export MELD_TOOL="${MELD_TOOL_DIR}meld_tool.js"
 
 [ -s ~/.meld_tool/solid_auth.sh ] && source ~/.meld_tool/solid_auth.sh
 
-echo "Use 'node meld_tool.js ...' to run MELD tool"
+echo "Use 'node \$MELD_TOOL ...' to run MELD tool"
