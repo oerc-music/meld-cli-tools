@@ -16,6 +16,7 @@ const axios       = require('axios');
 const rdf         = require('rdflib');
 const stream      = require('stream');
 
+const LinkHeader  = require('http-link-header');
 
 // See https://github.com/jeff-zucker/solid-file-client/blob/master/lib/solid-shell-client.js
 const SolidClient     = require('@solid/cli/src/SolidClient');
@@ -38,7 +39,7 @@ const EXIT_NOT_FOUND      = 3;   // HTTP 404, etc.
 const EXIT_PERMISSION     = 4;   // No permission for operation
 const EXIT_REDIRECT       = 5;   // Redirect
 const EXIT_NOT_CONTAINER  = 6;   // Not a container
-const EXIT_NOT_ANNOTATION = 7;   // Not a container
+const EXIT_NOT_ANNOTATION = 7;   // Not an annotation
                                  //
 const EXIT_HTTP_ERR       = 9;   // Other HTTP failure codes
 const EXIT_CONTENT        = 10;  // No content match (test case failure)
@@ -201,6 +202,12 @@ program.command("make-container <parent_url> <container_name>")
     .action(run_command(do_make_container))
     ;
 
+program.command("remove-container <container_url>")
+    .alias("rmco")
+    .description("Remove container and all its contents.")
+    .action(run_command(do_remove_container))
+    ;
+
 program.command("make-workset <container_url> <workset_name>")
     .alias("mkws")
     .description("Create working set and write URI to stdout.")
@@ -315,7 +322,9 @@ function collect_multiple(val, option_vals) {
 
 function process_exit(exitstatus, exitmessage) {
     // Exit process with supplied status code (and diagnostic message)
-    // This function isolates process exit handling.
+    // This function isolates process exit handling, allowing command
+    // functions to be called without possibly calling process.exit
+    // (see "run_command" below).
     let err = new Error(exitmessage);
     err.name  = 'ExitStatus';
     err.value = exitstatus;
@@ -384,7 +393,7 @@ function get_auth_params() {
 }
 
 function parse_rdf(stream_data, content_type, base_url) {
-    // Returns RDF graph for supplied data stream and contebnt type
+    // Returns RDF graph for supplied data stream and content type
     let graph = rdf.graph()
     rdf.parse(stream_data, graph, base_url, content_type);
     return graph;
@@ -399,7 +408,7 @@ function get_stream_data(data_stream) {
         data_stream.on('readable', 
             () => {
                 let chunk = data_stream.read();
-                // Nopte: nonew readable until `null` seen
+                // Note: now readable until `null` seen
                 while (chunk !== null) {
                     chunks.push(chunk);
                     chunk = data_stream.read();
@@ -577,7 +586,24 @@ function get_node_URI(node) {
     return undefined
 }
 
+function get_container_content_urls(response, container_ref) {
+    // console.log(response.data);
+    console_debug("get_container_content_urls: %s", container_ref);
+    let container_uri   = get_container_url(container_ref);
+    let container_graph = rdf.graph();
+    rdf.parse(
+        response.data, container_graph, container_uri, response.headers["content-type"]
+        );
+    let container_contents = container_graph.each(
+        rdf.sym(container_uri),
+        rdf.sym('http://www.w3.org/ns/ldp#contains'),
+        undefined);
+    var content_uris = container_contents.map(get_node_URI)
+    return content_uris;
+}
+
 function show_container_contents(response, container_ref) {
+    // @@TODO: use get_container_content_urls
     // console.log(response.data);
     let container_uri   = get_container_url(container_ref);
     let container_graph = rdf.graph();
@@ -624,6 +650,83 @@ function create_resource(container_url, headers, resource_data) {
         ;
     return p;
 }
+
+function response_has_link(response, rel, uri) {
+    // Returns true if the supplied response has a link header with the indicated
+    // relation and URI.
+    //console.log(r.headers.link)
+    if (response.headers.link) {
+        let links = LinkHeader.parse(response.headers.link);
+        //console.log(links)
+        for (let link of links.rel("type")) {
+            if (link.uri == "http://www.w3.org/ns/ldp#Container") {
+                return true
+            }
+        }       
+    }
+    return false
+}
+
+function remove_container(container_url) {
+    let ldp_axios = null;
+    function recursive_remove(container_url) {
+        console_debug("recursive_remove: %s", container_url);
+        let p1 = ldp_axios.get(container_url)
+            .then(response => console_debug("ldp_axios.get %s", response))
+            .then(response => get_container_content_urls(response, container_url))
+            .then(urls     => console_debug("urls %s", urls))
+            .then(urls     => Promise.all(urls.map( u => ldp_axios.head(u) // Be aware: https://github.com/solid/node-solid-server/issues/454
+                // One promnise for each URL in container...            
+                .then(response => 
+                    ( response_has_link(response, "type", "http://www.w3.org/ns/ldp#Container") 
+                        ? recursive_remove(u) 
+                        : ldp_axios.delete(u)
+                    ))
+                ))
+            )
+            .then(ps       => ldp_axios.delete(container_url))
+        return p1
+        }
+    let p = get_auth_token(...get_auth_params())
+        .then(token  => ldp_request_rdf(token))
+        .then(axios  => { ldp_axios = axios })
+        // .then(()     => console_debug("axios: %s", ldp_axios))
+        .then(()     => recursive_remove(container_url))
+   return p;
+}
+
+//   var prom = cserv.getLDPcontents(container_url)
+//                .then(uris => Promise.all(uris.map( u => 
+//                    axios.head(u) // Be aware: https://github.com/solid/node-solid-server/issues/454
+//                      .then(r=>{
+//                          if (!r.headers.link) {
+//                              console.log("Can't identify:",u)
+//                              console.log("Will try deleting")
+//                              return axios.delete(u)
+//                          }
+//                          //console.log(r.headers.link)
+//                          var links = LinkHeader.parse(r.headers.link)
+//                          //console.log(links)
+//                          if (_.find(links.refs, ['uri', 'http://www.w3.org/ns/ldp#Container'])) {
+//                              console.log("Found container:", u)
+//                              return ( go(u)
+//                                         .then(()=>{
+//                                             axios.delete(u)
+//                                             console.log("deleted container:", u)
+//                                       })
+//                                     )
+//                          } else {
+//                              console.log("Found resource:", u)
+//                              return ( axios.delete(u)
+//                                         .then(console.log("deleted:", u))
+//                                     )
+//                          }
+//                      })
+//                    //axios.delete(u)
+//                    //  .then(console.log("deleted:", u))
+//                )))
+//   return prom
+// }
 
 function report_error(error, exit_msg) {
     // Reports an error and triggers process exit with error
@@ -1045,6 +1148,17 @@ function do_make_container(parent_url, coname) {
         .then(location => { console.log(location); return location; })
         .catch(error   => report_error(error,  "Make container error"))
         .then(location => process_exit(status, "Make container OK"))
+        ;
+    return p;
+}
+
+function do_remove_container(container_url) {
+    let status = EXIT_SUCCESS;
+    get_config();
+    console.error('Remove container %s and contents', container_url);
+    let p = remove_container(container_url)
+        .catch(error   => report_error(error,  "Remove container error"))
+        .then(()       => process_exit(status, "Remove container OK"))
         ;
     return p;
 }
