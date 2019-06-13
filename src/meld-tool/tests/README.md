@@ -45,4 +45,5 @@ To run tests, under bash:
 - [x] Test show workset resource
 - [x] Test fragment creation, access and removal
 - [x] Test annotation creation, access and removal
+- [x] Test remove-container, which recursively removes contents
 
