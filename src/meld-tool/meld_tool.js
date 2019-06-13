@@ -658,8 +658,8 @@ function response_has_link(response, rel, uri) {
     if (response.headers.link) {
         let links = LinkHeader.parse(response.headers.link);
         //console.log(links)
-        for (let link of links.rel("type")) {
-            if (link.uri == "http://www.w3.org/ns/ldp#Container") {
+        for (let link of links.rel(rel)) {
+            if (link.uri == uri) {
                 return true
             }
         }       
@@ -672,9 +672,7 @@ function remove_container(container_url) {
     function recursive_remove(container_url) {
         console_debug("recursive_remove: %s", container_url);
         let p1 = ldp_axios.get(container_url)
-            .then(response => console_debug("ldp_axios.get %s", response))
             .then(response => get_container_content_urls(response, container_url))
-            .then(urls     => console_debug("urls %s", urls))
             .then(urls     => Promise.all(urls.map( u => ldp_axios.head(u) // Be aware: https://github.com/solid/node-solid-server/issues/454
                 // One promnise for each URL in container...            
                 .then(response => 
@@ -687,46 +685,13 @@ function remove_container(container_url) {
             .then(ps       => ldp_axios.delete(container_url))
         return p1
         }
+    console_debug("remove_container: %s", container_url);
     let p = get_auth_token(...get_auth_params())
         .then(token  => ldp_request_rdf(token))
         .then(axios  => { ldp_axios = axios })
-        // .then(()     => console_debug("axios: %s", ldp_axios))
         .then(()     => recursive_remove(container_url))
    return p;
 }
-
-//   var prom = cserv.getLDPcontents(container_url)
-//                .then(uris => Promise.all(uris.map( u => 
-//                    axios.head(u) // Be aware: https://github.com/solid/node-solid-server/issues/454
-//                      .then(r=>{
-//                          if (!r.headers.link) {
-//                              console.log("Can't identify:",u)
-//                              console.log("Will try deleting")
-//                              return axios.delete(u)
-//                          }
-//                          //console.log(r.headers.link)
-//                          var links = LinkHeader.parse(r.headers.link)
-//                          //console.log(links)
-//                          if (_.find(links.refs, ['uri', 'http://www.w3.org/ns/ldp#Container'])) {
-//                              console.log("Found container:", u)
-//                              return ( go(u)
-//                                         .then(()=>{
-//                                             axios.delete(u)
-//                                             console.log("deleted container:", u)
-//                                       })
-//                                     )
-//                          } else {
-//                              console.log("Found resource:", u)
-//                              return ( axios.delete(u)
-//                                         .then(console.log("deleted:", u))
-//                                     )
-//                          }
-//                      })
-//                    //axios.delete(u)
-//                    //  .then(console.log("deleted:", u))
-//                )))
-//   return prom
-// }
 
 function report_error(error, exit_msg) {
     // Reports an error and triggers process exit with error
