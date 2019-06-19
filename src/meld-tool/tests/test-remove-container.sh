@@ -1,4 +1,4 @@
-EXITSTATUS=0
+make_test_container
 
 # Set up test data
 
@@ -11,9 +11,9 @@ EOF
 
 # Parent with contained resource
 if [ $EXITSTATUS -eq 0 ]; then
-    CONTAINER_PATH=$(node $MELD_TOOL make-container $MELD_BASE_PATH test_container)
+    CONTAINER_PATH=$(node $MELD_TOOL make-container $TEST_PATH test_container)
     test_sts $? "make-container" \
-      && test_eq "$CONTAINER_PATH" "${MELD_BASE_PATH}test_container/" "make-container"
+      && test_eq "$CONTAINER_PATH" "${TEST_PATH}test_container/" "make-container"
     EXITSTATUS=$?
 fi
 
@@ -68,7 +68,7 @@ fi
 # Check contents
 
 if [ $EXITSTATUS -eq 0 ]; then
-    PUBLIC_CONTENT=$(node $MELD_TOOL list-container $MELD_BASE_PATH)
+    PUBLIC_CONTENT=$(node $MELD_TOOL list-container $TEST_PATH)
     test_sts $? "list-container" \
       && test_in "$PUBLIC_CONTENT" "$CONTAINER_PATH" "list-container (base)"
     EXITSTATUS=$?
@@ -108,7 +108,7 @@ fi
 # Test container is removed
 
 if [ $EXITSTATUS -eq 0 ]; then
-    PUBLIC_CONTENT=$(node $MELD_TOOL list-container $MELD_BASE_PATH)
+    PUBLIC_CONTENT=$(node $MELD_TOOL list-container $TEST_PATH)
     test_sts $? "list-container" \
       && test_not_in "$PUBLIC_CONTENT" "$CONTAINER_PATH" "list-container (parent removed)"
     EXITSTATUS=$?

@@ -8,10 +8,12 @@ export NODE_EXTRA_CA_CERTS=$SOLID_CERTS/localhost.crt
 export NODE_TLS_REJECT_UNAUTHORIZED=0
 
 export MELD_TOOL_DIR="$(pwd)/../"
-export MELD_TOOL="${MELD_TOOL_DIR}meld_tool.js"
+export MELD_TOOL="${MELD_TOOL_DIR}meld_tool_cli.js"
 export MELD_HOST_URL="https://localhost:8443"
 export MELD_BASE_PATH="/public/"
 export MELD_BASE_URL="${MELD_HOST_URL}${MELD_BASE_PATH}"
+export TEST_BASE_PATH="${MELD_BASE_PATH}test/"
+export TEST_BASE_URL="${MELD_HOST_URL}${TEST_BASE_PATH}"
 
 if [[ "$MELD_USERNAME" == "" ]]; then
     echo "Environment variable MELD_USERNAME not defined"
@@ -30,6 +32,16 @@ if [[ "$MELD_IDPROVIDER" == "" ]]; then
     echo "(Tried using ~/.meld_tool/solid_auth.sh)"
     return 1
 fi
+
+function make_test_container {
+    node $MELD_TOOL test-is-container ${TEST_BASE_PATH}
+    EXITSTATUS=$?
+    if [ $EXITSTATUS -ne 0 ]; then
+        TEST_PATH=$(node $MELD_TOOL make-container $MELD_BASE_PATH test)
+        test_sts $? "make-test-container" \
+          && test_eq "${TEST_PATH}" "${TEST_BASE_PATH}" "make-test-container"
+    fi    
+}
 
 function test_sts {
     # Check for success exit status

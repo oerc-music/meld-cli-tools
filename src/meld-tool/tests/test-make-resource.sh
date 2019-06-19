@@ -1,3 +1,5 @@
+make_test_container
+
 # Create a resource
 
 cat >test-make-resource.tmp <<EOF
@@ -8,11 +10,11 @@ test resource last line
 EOF
 
 RESOURCE_PATH=$(node $MELD_TOOL make-resource \
-    "$MELD_BASE_PATH" "test_resource" "text/plain" - \
+    "$TEST_PATH" "test_resource" "text/plain" - \
     <test-make-resource.tmp \
     )
 test_sts $? "make-resource" \
-  && test_eq "$RESOURCE_PATH" "${MELD_BASE_PATH}test_resource.txt" "make-resource"
+  && test_eq "$RESOURCE_PATH" "${TEST_PATH}test_resource.txt" "make-resource"
 EXITSTATUS=$?
 
 # Show test resource and check output

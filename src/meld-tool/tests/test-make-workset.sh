@@ -1,14 +1,14 @@
-EXITSTATUS=0
+make_test_container
 
 if [ $EXITSTATUS -eq 0 ]; then
-    CONTAINER_PATH=$(node $MELD_TOOL make-workset $MELD_BASE_PATH test_workset)
+    CONTAINER_PATH=$(node $MELD_TOOL make-workset $TEST_PATH test_workset)
     test_sts $? "make-workset" \
-      && test_eq "$CONTAINER_PATH" "${MELD_BASE_PATH}test_workset/" "make-workset"
+      && test_eq "$CONTAINER_PATH" "${TEST_PATH}test_workset/" "make-workset"
     EXITSTATUS=$?
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
-    PUBLIC_CONTENT=$(node $MELD_TOOL list-container $MELD_BASE_PATH)
+    PUBLIC_CONTENT=$(node $MELD_TOOL list-container $TEST_PATH)
     test_sts $? "list-container" \
       && test_in "$PUBLIC_CONTENT" "$CONTAINER_PATH" "list-container"
     EXITSTATUS=$?

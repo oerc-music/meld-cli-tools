@@ -33,8 +33,18 @@ To run tests, under bash:
 
     Note that run-all-tests looks for individual test suite files in the current directory; these test suites may be run separately.
 
+5. Cleaning up
 
-### Tests summary
+If tests fail for any reason, data may be left behind in that will cause subsequent test runs to fail, even if all problems have been rectified.
+
+To clean up old test run data:
+
+    node $MELD_TOOL rmco /public/test/
+
+(Issue this command after running `set-test-env.sh` as described above.)
+
+
+## Tests summary
 
 - [x] Set up test environment
 - [x] Test help

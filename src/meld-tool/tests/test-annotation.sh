@@ -1,13 +1,13 @@
-EXITSTATUS=0
+make_test_container
 
 if [ $EXITSTATUS -eq 0 ]; then
-    CONTAINER_PATH=$(node $MELD_TOOL make-annotation-container $MELD_BASE_PATH test_annotation_container)
+    CONTAINER_PATH=$(node $MELD_TOOL make-annotation-container $TEST_PATH test_annotation_container)
     test_sts $? "make-annotation-container" \
-      && test_eq "${CONTAINER_PATH}" "${MELD_BASE_PATH}test_annotation_container/" "make-annotation-container"
+      && test_eq "${CONTAINER_PATH}" "${TEST_PATH}test_annotation_container/" "make-annotation-container"
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
-    PUBLIC_CONTENT=$(node $MELD_TOOL show-annotation-container $MELD_BASE_PATH)
+    PUBLIC_CONTENT=$(node $MELD_TOOL show-annotation-container $TEST_PATH)
     test_sts $? "show-annotation-container" \
       && test_in "$PUBLIC_CONTENT" "${CONTAINER_PATH}" "show-annotation-container"
 fi
@@ -63,7 +63,7 @@ if [ $EXITSTATUS -eq 0 ]; then
         make-annotation ${CONTAINER_PATH} \
         test-target1 annotation1/test-body1 test-motivation1)
     test_sts $? "make-annotation (1)" \
-        && test_eq "${ANNOTATION1_URL}" "${MELD_BASE_PATH}test_annotation_container/test-target1.test-motivation1.test-body1.ttl"
+        && test_eq "${ANNOTATION1_URL}" "${TEST_PATH}test_annotation_container/test-target1.test-motivation1.test-body1.ttl"
     echo "Created annotation (1) ${ANNOTATION1_URL}"
 fi
 
@@ -101,7 +101,7 @@ if [ $EXITSTATUS -eq 0 ]; then
         test-target2 - test-motivation2 \
         < annotation-body-content.tmp)
     test_sts $? "make-annotation (2)" \
-        && test_eq "${ANNOTATION2_URL}" "${MELD_BASE_PATH}test_annotation_container/test-target2.test-motivation2.body.ttl"
+        && test_eq "${ANNOTATION2_URL}" "${TEST_PATH}test_annotation_container/test-target2.test-motivation2.body.ttl"
     echo "Created annotation (2) ${ANNOTATION2_URL}"
 fi
 
@@ -157,7 +157,7 @@ if [ $EXITSTATUS -eq 0 ]; then
 fi
 
 
-return #@@@@@@@@
+# return   #@@ Enable this to leave annotations for diagnostic examination
 
 # Remove annotation
 
