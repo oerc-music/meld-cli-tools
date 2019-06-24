@@ -9,13 +9,14 @@ test resource line 2
 test resource last line
 EOF
 
-RESOURCE_PATH=$(node $MELD_TOOL make-resource \
-    "$TEST_PATH" "test_resource" "text/plain" - \
-    <test-make-resource.tmp \
-    )
-test_sts $? "make-resource" \
-  && test_eq "$RESOURCE_PATH" "${TEST_PATH}test_resource.txt" "make-resource"
-EXITSTATUS=$?
+if [ $EXITSTATUS -eq 0 ]; then
+    RESOURCE_PATH=$(node $MELD_TOOL make-resource \
+        "$TEST_PATH" "test_resource" "text/plain" - \
+        <test-make-resource.tmp \
+        )
+    test_sts $? "make-resource" \
+      && test_eq "$RESOURCE_PATH" "${TEST_PATH}test_resource.txt" "make-resource"
+fi
 
 # Show test resource and check output
 
@@ -23,7 +24,6 @@ if [ $EXITSTATUS -eq 0 ]; then
     RESOURCE_CONTENT_TYPE=$(node $MELD_TOOL content-type $RESOURCE_PATH)
     test_sts $? "show-content-type" \
       && test_eq "$RESOURCE_CONTENT_TYPE" "text/plain"
-    EXITSTATUS=$?
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
@@ -32,13 +32,11 @@ if [ $EXITSTATUS -eq 0 ]; then
       && test_in "$RESOURCE_CONTENT" "test resource line 1"    "show-resource" \
       && test_in "$RESOURCE_CONTENT" "test resource line 2"    "show-resource" \
       && test_in "$RESOURCE_CONTENT" "test resource last line" "show-resource"
-    EXITSTATUS=$?
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
     node $MELD_TOOL test-is-container $RESOURCE_PATH
     test_sts_eq $? 6 "test-is-container"
-    EXITSTATUS=$?
 fi
 
 # Test resource content using test command
@@ -55,14 +53,12 @@ if [ $EXITSTATUS -eq 0 ]; then
         <test-make-resource-expect-content.tmp  \
         )
     test_sts $? "resource-text-content"
-    EXITSTATUS=$?
 fi
 
 if [ $EXITSTATUS -eq 0 ]; then
     RESOURCE_CONTENT_TYPE=$(node $MELD_TOOL content-type $RESOURCE_PATH)
     test_sts $? "show-content-type" \
       && test_eq "$RESOURCE_CONTENT_TYPE" "text/plain"
-    EXITSTATUS=$?
 fi
 
 rm test-make-resource-expect-content.tmp
@@ -72,7 +68,6 @@ rm test-make-resource-expect-content.tmp
 if [ $EXITSTATUS -eq 0 ]; then
     node $MELD_TOOL remove-resource $RESOURCE_PATH
     test_sts $? "remove-resource exit status"
-    EXITSTATUS=$?
 fi
 
 rm test-make-resource.tmp

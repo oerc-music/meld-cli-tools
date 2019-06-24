@@ -152,7 +152,7 @@ program.version('0.1.0')
     ;
 
 program.command("help [cmd]")
-    .action(do_help)
+    .action(run_command(do_help))
     ;
 
 program.command("full-url")

@@ -3,7 +3,7 @@ make_test_container
 if [ $EXITSTATUS -eq 0 ]; then
     CONTAINER_PATH=$(node $MELD_TOOL make-container $TEST_PATH test_container)
     test_sts $? "make-container" \
-      && test_eq "$CONTAINER_PATH" "${TEST_PATH}test_container/" "make-workset"
+      && test_eq "$CONTAINER_PATH" "${TEST_PATH}test_container/" "make-container"
     EXITSTATUS=$?
 fi
 

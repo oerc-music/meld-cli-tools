@@ -22,25 +22,6 @@ const meld        = require('./meld_tool_lib.js')
 
 //  ===================================================================
 //
-//  Data for creating containers and other resources
-//
-//  ===================================================================
-
-var ws_template = `
-    <> a ldp:BasicContainer, ldp:Container , ninre:WorkSet ;
-        dc:author   "@AUTHOR" ;
-        dct:created "@CREATED" .
-    `;
-
-var fr_template = `
-    <> a ninre:FragmentRef , ldp:Resource ;
-      ninre:fragment <@FRAGURI> ;
-      dc:creator     "@AUTHOR" ;
-      dct:created    "@CREATED" .
-      `;
-
-//  ===================================================================
-//
 //  Local suppoprt functions
 //
 //  ===================================================================
@@ -114,7 +95,7 @@ program.version('0.1.0')
     ;
 
 program.command("help [cmd]")
-    .action(do_help)
+    .action(meld.run_command(do_help))
     ;
 
 program.command("full-url")
@@ -168,18 +149,6 @@ program.command("remove-container <container_url>")
     .alias("rmco")
     .description("Remove container and all its contents.")
     .action(meld.run_command(do_remove_container))
-    ;
-
-program.command("make-workset <container_url> <workset_name>")
-    .alias("mkws")
-    .description("Create working set and write URI to stdout.")
-    .action(meld.run_command(do_make_workset))
-    ;
-
-program.command("add-fragment <workset_url> <fragment_url> <fragment_name>")
-    .alias("adfr")
-    .description("Add fragment to working set and write fragment URI to stdout.")
-    .action(meld.run_command(do_add_fragment))
     ;
 
 program.command("make-annotation-container <parent_url> <container_name>")
@@ -500,59 +469,6 @@ function do_remove_container(container_url) {
     let p = remove_container(container_url)
         .catch(error   => meld.report_error(error,  "Remove container error"))
         .then(()       => meld.process_exit(status, "Remove container OK"))
-        ;
-    return p;
-}
-
-function do_make_workset(parent_url, wsname) {
-    let status = meld.EXIT_STS.SUCCESS;
-    get_config();
-    console.error('Make workset %s in container %s', wsname, parent_url);
-    // @@TODO: use make_empty_container
-    //  Assemble workset container data
-    let container_body = ws_template
-        .replace(/@AUTHOR/g,  meld.CONFIG.author)
-        .replace(/@CREATED/g, meld.CONFIG.date)
-        ;
-    let container_data = meld.TEMPLATES.prefixes + container_body;
-    let header_data = {
-        "content-type": 'text/turtle',
-        "link":         `<${meld.LDP_BASIC_CONTAINER}>; rel="type"`,
-        "slug":         wsname,
-    }
-    let p = create_resource(parent_url, header_data, container_data)
-        .then(location => { console.log(location); return location; })
-        .catch(error   => meld.report_error(error,  "Make workset error"))
-        .then(location => meld.process_exit(status, "Make workset OK"))
-        ;
-    return p;
-}
-
-function do_add_fragment(workset_url, fragment_ref, fragment_name) {
-    let status = meld.EXIT_STS.SUCCESS;
-    get_config();
-    console.error(
-        'Add fragment %s as %s in workset %s', 
-        fragment_ref, fragment_name, workset_url
-        );
-
-    //  Assemble workset container data
-    let fragment_uri  = meld.get_data_url(fragment_ref);
-    let fragment_body = fr_template
-        .replace(/@FRAGURI/g, fragment_uri)
-        .replace(/@AUTHOR/g,  meld.CONFIG.author)
-        .replace(/@CREATED/g, meld.CONFIG.date)
-        ;
-    let fragment_data = meld.TEMPLATES.prefixes + fragment_body;
-    let header_data = {
-        "content-type": 'text/turtle',
-        "link":         `<${meld.LDP_RESOURCE}>; rel="type"`,
-        "slug":         fragment_name,
-    }
-    let p = create_resource(workset_url, header_data, fragment_data)
-        .then(location => { console.log(location); return location; })
-        .catch(error   => meld.report_error(error,  "Add fragment error"))
-        .then(location => meld.process_exit(status, "Add fragment OK"))
         ;
     return p;
 }

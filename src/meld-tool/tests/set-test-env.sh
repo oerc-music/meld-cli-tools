@@ -9,6 +9,7 @@ export NODE_TLS_REJECT_UNAUTHORIZED=0
 
 export MELD_TOOL_DIR="$(pwd)/../"
 export MELD_TOOL="${MELD_TOOL_DIR}meld_tool_cli.js"
+export SOFA_TOOL="${MELD_TOOL_DIR}sofa_tool_cli.js"
 export MELD_HOST_URL="https://localhost:8443"
 export MELD_BASE_PATH="/public/"
 export MELD_BASE_URL="${MELD_HOST_URL}${MELD_BASE_PATH}"
@@ -40,7 +41,10 @@ function make_test_container {
         TEST_PATH=$(node $MELD_TOOL make-container $MELD_BASE_PATH test)
         test_sts $? "make-test-container" \
           && test_eq "${TEST_PATH}" "${TEST_BASE_PATH}" "make-test-container"
-    fi    
+    else
+        TEST_PATH="$TEST_BASE_PATH"
+    fi
+    return $EXITSTATUS
 }
 
 function test_sts {
@@ -62,6 +66,7 @@ function test_sts_eq {
     # $3 is message
     EXITSTATUS=$1
     if [[ $1 == $2 ]]; then
+        EXITSTATUS=0
         return 0
     fi
     echo "${3:-exit status}: status $1, expected: $2"
