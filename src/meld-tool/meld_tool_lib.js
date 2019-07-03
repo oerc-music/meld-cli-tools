@@ -43,7 +43,7 @@ const EXIT_STS =
         REDIRECT:       5,      // Redirect
         NOT_CONTAINER:  6,      // Not a container
         NOT_ANNOTATION: 7,      // Not an annotation
-                                //
+        TIMEOUT:        8,      // Timed out waiting for response
         HTTP_ERR:       9,      // Other HTTP failure codes
         CONTENT:        10,     // No content match (test case failure)
     }
@@ -166,14 +166,24 @@ function process_exit(exitstatus, exitmessage) {
     throw err;
 }
 
+exports.process_exit_now = process_exit_now
+function process_exit_now(exitstatus, exitmessage) {
+        console_debug('ExitStatus: '+exitmessage+' ('+String(exitstatus)+')');
+        process.exit(exitstatus);
+}
+
+exports.process_wait = process_wait
+function process_wait(status, exitmessage) {
+    return exitmessage;
+}
+
 exports.run_command = run_command
 function run_command(do_command) {
     // Wrapper for executing a command function.
     // returns a function that is used by commander.js parser.
     function handle_exit(e) {
         if (e.name === 'ExitStatus') {
-            console_debug('ExitStatus: '+e.message+' ('+String(e.value)+')');
-            process.exit(e.value);
+            process_exit_now(e.value, e.message)
         }
         throw e;        
     }

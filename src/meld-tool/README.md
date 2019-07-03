@@ -28,7 +28,7 @@
 - [x] Complete test suite for above
 
 - [ ] Look at more SOFA-specific capabilities (e.g. match services)
-- [ ] Refactor to separate generic LDP, generic annotaton, generic MELD, and SOFA-spoecific options.
+- [x] Refactor to separate generic LDP, generic annotaton, generic MELD, and SOFA-spoecific options.
 - [ ] Rationalize commands (?)
 
 - [x] default for author when creating a workset/container/annotation? (how?)
