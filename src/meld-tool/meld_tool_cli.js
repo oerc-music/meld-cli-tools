@@ -675,10 +675,11 @@ function do_remove_annotation(annotation_uri) {
     return p;
 }
 
-function do_resource_listen_once(resource_url) {
+function do_resource_listen_once(resource_ref) {
     let status = meld.EXIT_STS.SUCCESS;
     get_config();
-    console.error('Listen for notification from %s', resource_url);
+    console.error('Listen for notification from %s', resource_ref);
+    let resource_url = meld.get_data_url(resource_ref);
     let save_token = null
     let p = meld.get_auth_token(...get_auth_params())
         .then(token        => { save_token = token ; return token; })
