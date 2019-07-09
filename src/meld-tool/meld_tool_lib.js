@@ -14,6 +14,7 @@
 const axios       = require('axios');
 const rdf         = require('rdflib');
 const stream      = require('stream');
+const websocket   = require('ws');
 const LinkHeader  = require('http-link-header');
 
 // See https://github.com/jeff-zucker/solid-file-client/blob/master/lib/solid-shell-client.js
@@ -457,6 +458,36 @@ function create_resource(container_url, headers, resource_data, auth_params) {
     return p;
 }
 
+exports.update_resource = update_resource
+function update_resource(resource_url, headers, resource_data, auth_params) {
+    // Create resource in specified container
+    //
+    // resource_url     URL of resource
+    // headers          Object with headers to include in POST request.
+    //                  Notably, specifies content-type, slug and type
+    //                  link for new resource
+    // resource_data    Data reprtesenting resource to be added.
+    // 
+    // Returns a promise for the location (URL) of the created resource
+    //
+    if (CONFIG.verbose) {
+        console.log("put_data: headers:");
+        console.log(headers);
+        console.log("put_data: resource_data:");
+        console.log(resource_data);
+    }
+    //  Put to supplied resource URI to iupdate resource content
+    let p = get_auth_token(...auth_params)
+        .then(token    => ldp_request(token).put(
+            resource_url, resource_data, {"headers": headers}
+            ))
+        .then(response => show_response_status(response))
+        .then(response => check_status(response))
+        .then(()       => console_debug("put_data: updated %s", resource_url))
+        ;
+    return p;
+}
+
 exports.make_empty_container = make_empty_container
 function make_empty_container(parent_url, coname, template, auth_params) {
     let container_body = template
@@ -778,6 +809,61 @@ function test_response_is_annotation(response, resource_url) {
         .then(status => { console.error("Exit status: "+status); return status; })
         ;
     return p; 
+}
+
+
+exports.get_websocket_url = get_websocket_url
+function get_websocket_url(response) {
+    console_debug("response.status %s", response.status)
+    console_debug("response.headers %s", String(response.headers) )
+
+    let ws_url = response.headers["updates-via"]
+    console_debug("Websocket URL %s", ws_url)
+    if ( !ws_url ) {
+        throw new Error("No 'Updates-Via' header field in 'OPTIONS' response")
+    }
+    return ws_url
+}
+
+exports.websocket_listen_once = websocket_listen_once
+function websocket_listen_once(save_token, ws_url, resource_url) {
+    function ws_cancel_wait(ws, listener) {
+        ws.removeEventListener('message', listener)
+        ws.close(3000+meld.EXIT_STS.TIMEOUT, "Timed out waiting for response message");
+        meld.process_exit_now(meld.EXIT_STS.TIMEOUT, "Timed out waiting for response message");
+    }
+    function exec_notification_promise(resolve, reject) {
+        // Callbacks called when event is triggered
+        // 'this' is event ws
+        // 'arguments' is any arguments supplied by 'emit'
+        // e.g. 'data' for message event
+        function cb_message(data) {
+            console_debug("message: %s", data)
+            if (data.startsWith("pub")) {
+                resolve(data);
+            }
+        }
+        function cb_error(error) {
+            reject(error);
+        }
+        function cb_close(code, reason) {
+            let msg = "websocket closed "+String(code)+": "+reason
+            reject(new Error(msg))
+        }
+        // Called when promise is created
+        ws.once('message', cb_message);
+        ws.once('error',   cb_error);
+        ws.once('close',   cb_close);
+        /*let timer = setTimeout(ws_cancel_wait, timeout, ws, message_response);*/
+    }
+    let ws = new websocket(ws_url);
+    ws.once('open',
+        function open() {
+            let msg_sub = "sub " + resource_url
+            console_debug("Subscribe: ", msg_sub)
+            ws.send(msg_sub)
+        })
+    return new Promise(exec_notification_promise);
 }
 
 // End.

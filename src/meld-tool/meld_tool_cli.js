@@ -62,6 +62,10 @@ function create_resource(container_url, headers, resource_data) {
     return meld.create_resource(container_url, headers, resource_data, get_auth_params())
 }
 
+function update_resource(resource_url, headers, resource_data) {
+    return meld.update_resource(resource_url, headers, resource_data, get_auth_params())
+}
+
 function make_empty_container(parent_url, coname, template) {
     return meld.make_empty_container(parent_url, coname, template, get_auth_params())
     }
@@ -113,6 +117,12 @@ program.command("make-resource <container_url> <resource_name> <content_type> [c
     .alias("mk")
     .description("Create resource with specified type and content")
     .action(meld.run_command(do_make_resource))
+    ;
+
+program.command("update-resource <resource_url> <content_type> [content_ref]")
+    .alias("up")
+    .description("Update resource with specified type and content")
+    .action(meld.run_command(do_update_resource))
     ;
 
 program.command("show-resource <resource_url>")
@@ -218,6 +228,12 @@ program.command("test-is-annotation <resource_url>")
     .action(meld.run_command(do_test_is_annotation))
     ;
 
+program.command("resource-listen-once <resource-url>")
+    .alias("rnli")
+    .description("Wait for notification from a resource, copy to standard output, then exit")
+    .action(meld.run_command(do_resource_listen_once))
+    ;
+
 // program.command("*")
 //     .action( (cmd, ...args) => {
 //             console.log("Unrecognized command %s", cmd);
@@ -311,6 +327,22 @@ function do_make_resource(parent_url, resource_name, content_type, content_ref) 
     }
     let p = meld.get_data_sequence(program.literal, content_ref, content_type)
         .then(data     => create_resource(parent_url, header_data, data))
+        .then(location => { console.log(location); return location; })
+        .catch(error   => meld.report_error(error,  "Create resource error"))
+        .then(location => meld.process_exit(status, "Create resource OK"))
+        ;
+    return p;
+}
+
+function do_update_resource(resource_url, content_type, content_ref) {
+    let status = meld.EXIT_STS.SUCCESS;
+    get_config();
+    console.error('Update resource %s', resource_url);
+    let header_data = {
+        "content-type": content_type
+    }
+    let p = meld.get_data_sequence(program.literal, content_ref, content_type)
+        .then(data     => update_resource(resource_url, header_data, data))
         .then(location => { console.log(location); return location; })
         .catch(error   => meld.report_error(error,  "Create resource error"))
         .then(location => meld.process_exit(status, "Create resource OK"))
@@ -642,6 +674,30 @@ function do_remove_annotation(annotation_uri) {
         ;
     return p;
 }
+
+function do_resource_listen_once(resource_url) {
+    let status = meld.EXIT_STS.SUCCESS;
+    get_config();
+    console.error('Listen for notification from %s', resource_url);
+    let save_token = null
+    let p = meld.get_auth_token(...get_auth_params())
+        .then(token        => { save_token = token ; return token; })
+        // See: https://github.com/solid/node-solid-server/issues/1222
+        // .then(token        => meld.ldp_request(token).options(resource_url))
+        .then(token        => meld.ldp_request(token).head(resource_url))
+        .then(response     => meld.show_response_status(response))
+        .then(response     => meld.check_status(response))
+        .then(response     => meld.get_websocket_url(response))
+        // .then(ws_url       => { save_ws_url = ws_url; return ws_url; } )
+        .catch(error       => meld.report_error(error,  "Failed to retrieve notification websocket URL"))
+        .then(ws_url       => meld.websocket_listen_once(save_token, ws_url, resource_url))
+        .then(notification => { console.log(notification); return notification; })
+        .catch(error       => meld.report_error(error,  "Error waiting for websocket notification"))
+        .then(response     => meld.process_exit(status, "Received notification OK"))
+        ;
+    return p;
+}
+
 
 //  ===================================================================
 //
