@@ -851,7 +851,7 @@ function websocket_listen_once(save_token, ws_url, resource_url) {
             reject(new Error(msg))
         }
         // Called when promise is created
-        ws.once('message', cb_message);
+        ws.on('message', cb_message);
         ws.once('error',   cb_error);
         ws.once('close',   cb_close);
         /*let timer = setTimeout(ws_cancel_wait, timeout, ws, message_response);*/
