@@ -811,6 +811,7 @@ function test_response_is_annotation(response, resource_url) {
     return p; 
 }
 
+// Nootification listeners and helpers
 
 exports.get_websocket_url = get_websocket_url
 function get_websocket_url(response) {
@@ -825,24 +826,22 @@ function get_websocket_url(response) {
     return ws_url
 }
 
-exports.websocket_listen_once = websocket_listen_once
-function websocket_listen_once(save_token, ws_url, resource_url) {
-    function ws_cancel_wait(ws, listener) {
-        ws.removeEventListener('message', listener)
-        ws.close(3000+meld.EXIT_STS.TIMEOUT, "Timed out waiting for response message");
-        meld.process_exit_now(meld.EXIT_STS.TIMEOUT, "Timed out waiting for response message");
-    }
+function ws_cancel_wait(ws, listener) {
+    ws.removeEventListener('message', listener)
+    ws.close(3000+meld.EXIT_STS.TIMEOUT, "Timed out waiting for response message");
+    meld.process_exit_now(meld.EXIT_STS.TIMEOUT, "Timed out waiting for response message");
+}
+
+function websocket_listen_helper(token, ws_url, resource_ref, cb_msg_setup) {
+    // token        authentication/authorization token
+    // wsurl        URL for notifications websocket
+    // resource_ref URIref of resource for which to notify about changes
+    // cb_msg_setup function called with websocket to setup message callback
     function exec_notification_promise(resolve, reject) {
         // Callbacks called when event is triggered
         // 'this' is event ws
         // 'arguments' is any arguments supplied by 'emit'
         // e.g. 'data' for message event
-        function cb_message(data) {
-            console_debug("message: %s", data)
-            if (data.startsWith("pub")) {
-                resolve(data);
-            }
-        }
         function cb_error(error) {
             reject(error);
         }
@@ -851,11 +850,13 @@ function websocket_listen_once(save_token, ws_url, resource_url) {
             reject(new Error(msg))
         }
         // Called when promise is created
-        ws.on('message', cb_message);
         ws.once('error',   cb_error);
         ws.once('close',   cb_close);
+        cb_msg_setup(ws, resolve, reject)
         /*let timer = setTimeout(ws_cancel_wait, timeout, ws, message_response);*/
     }
+    // Create websocket and subscribe to notifications when open
+    let resource_url = get_data_url(resource_ref)
     let ws = new websocket(ws_url);
     ws.once('open',
         function open() {
@@ -864,6 +865,37 @@ function websocket_listen_once(save_token, ws_url, resource_url) {
             ws.send(msg_sub)
         })
     return new Promise(exec_notification_promise);
+}
+
+exports.websocket_listen = websocket_listen
+function websocket_listen(token, ws_url, resource_ref) {
+    function setup_cb_message(ws, resolve, reject) {
+        function cb_message_many(data) {
+            console_debug("cb_message_many: %s", data)
+            if (data.startsWith("pub")) {
+                console.log(data)
+            }
+        }
+        ws.on('message', cb_message_many)
+    }
+    return websocket_listen_helper(token, ws_url, resource_ref, setup_cb_message)
+}
+
+exports.websocket_listen_once = websocket_listen_once
+function websocket_listen_once(token, ws_url, resource_ref) {
+    function setup_cb_message(ws, resolve, reject) {
+        function cb_message_once(data) {
+            console_debug("cb_message_once: %s", data)
+            if (data.startsWith("pub")) {
+                console.log(data)
+                resolve(data);
+            } else {
+                ws.once('message', cb_message_once);   // field next event
+            }
+        }
+        ws.once('message', cb_message_once)
+    }
+    return websocket_listen_helper(token, ws_url, resource_ref, setup_cb_message)
 }
 
 // End.

@@ -1,0 +1,39 @@
+{
+  "name": "meld-tool",
+  "version": "0.1.0",
+  "description": "MELD command line tool",
+  "main": "meld-tool-cli.js",
+  "directories": {
+    "test": "tests"
+  },
+  "dependencies": {
+    "@solid/cli": "^0.1.1",
+    "axios": "^0.19.0",
+    "commander": "^2.19.0",
+    "follow-redirects": "^1.7.0",
+    "http-link-header": "^1.0.2",
+    "rdflib": "^0.19.1",
+    "ws": "^7.1.0",
+    "wscat": "^2.2.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": ". tests/run-all-tests.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/oerc-music/meld-cli-tools.git"
+  },
+  "keywords": [
+    "MELD",
+    "Solid",
+    "CLI",
+    "SOFA"
+  ],
+  "author": "Graham Klyne",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/oerc-music/meld-cli-tools/issues"
+  },
+  "homepage": "https://github.com/oerc-music/meld-cli-tools#readme"
+}
