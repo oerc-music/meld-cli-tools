@@ -811,7 +811,7 @@ function test_response_is_annotation(response, resource_url) {
     return p; 
 }
 
-// Nootification listeners and helpers
+// Notification listeners and helpers
 
 exports.get_websocket_url = get_websocket_url
 function get_websocket_url(response) {
@@ -836,7 +836,7 @@ function websocket_listen_helper(token, ws_url, resource_ref, cb_msg_setup) {
     // token        authentication/authorization token
     // wsurl        URL for notifications websocket
     // resource_ref URIref of resource for which to notify about changes
-    // cb_msg_setup function called with websocket to setup message callback
+    // cb_msg_setup function called to setup message callback
     function exec_notification_promise(resolve, reject) {
         // Callbacks called when event is triggered
         // 'this' is event ws

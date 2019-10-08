@@ -274,8 +274,9 @@ function collect_multiple(val, option_vals) {
 
 function do_help(cmd) {
     let helptext = [
-        "meld-tool make-workset <container_url> <workset_name>",
-        "meld-tool add-fragment <workset_url> <fragment_url> <fragment_name>",
+        "Use meld_tool --help for command summary",
+        // "meld-tool make-workset <container_url> <workset_name>",
+        // "meld-tool add-fragment <workset_url> <fragment_url> <fragment_name>",
         // "",
         // "",
     ];
