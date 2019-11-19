@@ -13,6 +13,8 @@
 
 const program     = require('commander');
 const meld        = require('./meld_tool_lib.js')
+const rdf         = require('rdflib');
+
 
 //  ===================================================================
 //
@@ -123,6 +125,12 @@ program.command("add-fragment <workset_url> <fragment_url> <fragment_name>")
     .action(meld.run_command(do_add_fragment))
     ;
 
+program.command("merge-workset <target_workset_url> <src_workset_url>")
+    .alias("mgws")
+    .description("Add fragments in src working set to the target workset.")
+    .action(meld.run_command(do_merge_workset))
+    ;
+
 // program.command("*")
 //     .action( (cmd, ...args) => {
 //             console.log("Unrecognized command %s", cmd);
@@ -210,6 +218,74 @@ function do_add_fragment(workset_url, fragment_ref, fragment_name) {
         .catch(error   => meld.report_error(error,  "Add fragment error"))
         .then(location => meld.process_exit(status, "Add fragment OK"))
         ;
+    return p;
+}
+
+function get_frag_from_fragref(fragref_uri, request_cxt) {
+    let p = request_cxt
+        .then(cxt => cxt.get(fragref_uri))
+        .then(response => {
+            let graph = meld.parse_rdf(response.data, response.headers["content-type"], fragref_uri)
+            let frag = graph.any(rdf.sym(fragref_uri),
+                                 rdf.sym('http://remix.numbersintonotes.net/vocab#fragment'),
+                                 undefined);
+            return meld.get_node_URI(frag);
+        })
+    return p;
+}
+
+function do_merge_workset(target_workset_uri, src_workset_uri) {
+    get_config();
+    console.error(
+        "Merging fragments from %s into workset %s",
+        src_workset_uri, target_workset_uri);
+
+    let request_cxt = meld.get_auth_token(...get_auth_params())
+        .then(token => meld.ldp_request_rdf(token));
+
+    let target_frags_p = request_cxt
+        .then(cxt => cxt.get(target_workset_uri))
+        .then(response => meld.show_response_status(response))
+        .then(response => meld.check_status(response))
+        .then(response => {
+            let cont_uris = meld.get_container_content_urls(response, target_workset_uri)
+            let frag_ps = cont_uris.map(fragref => get_frag_from_fragref(fragref, request_cxt))
+            let ps = Promise.all(frag_ps)
+            return ps;
+          })
+        .then(r=> {console.error('target:', r); return r})
+    
+    let src_fragref_p = request_cxt
+        .then(cxt => cxt.get(src_workset_uri))
+        .then(response => meld.show_response_status(response))
+        .then(response => meld.check_status(response))
+        .then(response => {
+            let cont_uris = meld.get_container_content_urls(response, src_workset_uri)
+            return cont_uris;
+          })
+        .then(r=> {console.error('src fragrefs:', r); return r})
+
+    let p = Promise.all([target_frags_p, src_fragref_p, request_cxt])
+        .then(([tfrags, src_fragrefs, cxt]) => {
+            let ps = src_fragrefs.map(fragref => get_frag_from_fragref(fragref, request_cxt)
+                 .then(frag => {
+                     if (tfrags.includes(frag)) {
+                          console.error('Already in target:', frag)
+                          console.error(' skipping')
+                          return null;
+                     } else {
+                          console.error('Not in target:', frag)
+                          let p = do_add_fragment(target_workset_uri, frag, "FragRef")
+                              .then(loc => {console.error("Adding %s as FragRef %s",
+                                                frag, loc);
+                                            return loc;
+                                    })
+                     }
+                 }))
+            let p = Promise.all(ps)
+            return p;
+         })
+
     return p;
 }
 
