@@ -192,15 +192,7 @@ function do_make_workset(parent_url, wsname) {
     return p;
 }
 
-function do_add_fragment(workset_url, fragment_ref, fragment_name) {
-    let status = meld.EXIT_STS.SUCCESS;
-    get_config();
-    console.error(
-        'Add fragment %s as %s in workset %s', 
-        fragment_ref, fragment_name, workset_url
-        );
-
-    //  Assemble workset container data
+function add_fragment_to_ws(workset_url, fragment_ref, fragment_name) {
     let fragment_uri  = meld.get_data_url(fragment_ref);
     let fragment_body = fr_template
         .replace(/@FRAGURI/g, fragment_uri)
@@ -215,6 +207,18 @@ function do_add_fragment(workset_url, fragment_ref, fragment_name) {
     }
     let p = create_resource(workset_url, header_data, fragment_data)
         .then(location => { console.log(location); return location; })
+        ;
+    return p;
+}
+
+function do_add_fragment(workset_url, fragment_ref, fragment_name) {
+    let status = meld.EXIT_STS.SUCCESS;
+    get_config();
+    console.error(
+        'Add fragment %s as %s in workset %s', 
+        fragment_ref, fragment_name, workset_url
+        );
+    let p = add_fragment_to_ws(workset_url, fragment_ref, fragment_name)
         .catch(error   => meld.report_error(error,  "Add fragment error"))
         .then(location => meld.process_exit(status, "Add fragment OK"))
         ;
