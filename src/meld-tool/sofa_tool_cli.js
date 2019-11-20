@@ -245,7 +245,10 @@ function do_merge_workset(target_workset_uri, src_workset_uri) {
         src_workset_uri, target_workset_uri);
 
     let request_cxt = meld.get_auth_token(...get_auth_params())
-        .then(token => meld.ldp_request_rdf(token));
+        .then(token => meld.ldp_request_rdf(token))
+        .then(cxt => { cxt.defaults.timeout=5000;
+                       return cxt;
+                     });
 
     let target_frags_p = request_cxt
         .then(cxt => cxt.get(target_workset_uri))
@@ -279,7 +282,7 @@ function do_merge_workset(target_workset_uri, src_workset_uri) {
                           return null;
                      } else {
                           console.error('Not in target:', frag)
-                          let p = do_add_fragment(target_workset_uri, frag, "FragRef")
+                          let p = add_fragment_to_ws(target_workset_uri, frag, "FragRef")
                               .then(loc => {console.error("Adding %s as FragRef %s",
                                                 frag, loc);
                                             return loc;
