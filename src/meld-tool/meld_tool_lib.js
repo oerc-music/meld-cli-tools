@@ -27,6 +27,58 @@ const IdentityManager = require('@solid/cli/src/IdentityManager');
 //
 //  ===================================================================
 
+// Adapted from: 
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
+
+class NotResolvedError extends Error {
+    constructor(...params) {
+        super(...params);
+        // Maintains proper stack trace for where our error was thrown (only available on V8)
+        if (Error.captureStackTrace) {
+            Error.captureStackTrace(this, NotResolvedError);
+        }
+    this.name = 'NotResolvedError';
+    // Custom debugging information
+    // this.date = new Date();
+  }
+}
+exports.NotResolvedError = NotResolvedError
+
+class NotMatchedError extends Error {
+    constructor(...params) {
+        super(...params);
+        // Maintains proper stack trace for where our error was thrown (only available on V8)
+        if (Error.captureStackTrace) {
+            Error.captureStackTrace(this, NotMatchedError);
+        }
+    this.name = 'NotMatchedError';
+    // Custom debugging information
+    // this.date = new Date();
+  }
+}
+exports.NotMatchedError = NotMatchedError
+
+class NotFoundError extends Error {
+    constructor(...params) {
+        super(...params);
+        // Maintains proper stack trace for where our error was thrown (only available on V8)
+        if (Error.captureStackTrace) {
+            Error.captureStackTrace(this, NotFoundError);
+        }
+    this.name = 'NotFoundError';
+    // Custom debugging information
+    // this.date = new Date();
+  }
+}
+exports.NotFoundError = NotFoundError
+
+
+//  ===================================================================
+//
+//  Various constant values
+//
+//  ===================================================================
+
 const   LDP_BASIC_CONTAINER = "http://www.w3.org/ns/ldp#BasicContainer";
 exports.LDP_BASIC_CONTAINER = LDP_BASIC_CONTAINER
 
@@ -144,6 +196,31 @@ exports.TEMPLATES = TEMPLATES
 
 //  ===================================================================
 //
+//  Promise combining functions
+//
+//  ===================================================================
+
+function sequence_promises_until_resolved(promise_fns) {
+    // Evaluate array of promises sequentially until one resolves
+    // successfully, or all have been tried.
+    //
+    // promise_fns is an array of functions that return a promise
+    // when called.
+    //
+    // Returns a new promise that returns the result of a resolved promise,
+    // or a failure.
+    if (!promise_fns || !promise_fns.length) {
+        return Promise.reject(new NotResolvedError("No promise resolved"))
+    }
+    let [p_head, ...p_tail] = promise_fns    // Pick off head
+    let p = p_head()
+        .catch(e => sequence_promises_until_resolved(p_tail))
+        ;
+    return p
+}
+
+//  ===================================================================
+//
 //  Command dispatch supporting functions
 //
 //  ===================================================================
@@ -161,6 +238,7 @@ function process_exit(exitstatus, exitmessage) {
     // This function isolates process exit handling, allowing command
     // functions to be called without possibly calling process.exit
     // (see "run_command" below).
+    console_debug("process_exit");
     let err = new Error(exitmessage);
     err.name  = 'ExitStatus';
     err.value = exitstatus;
@@ -169,7 +247,9 @@ function process_exit(exitstatus, exitmessage) {
 
 exports.process_exit_now = process_exit_now
 function process_exit_now(exitstatus, exitmessage) {
-        console_debug('ExitStatus: '+exitmessage+' ('+String(exitstatus)+')');
+        if (exitstatus != EXIT_STS.SUCCESS ) {
+            console_log('ExitStatus: '+exitmessage+' ('+String(exitstatus)+')');
+        }
         process.exit(exitstatus);
 }
 
@@ -183,14 +263,16 @@ function run_command(do_command) {
     // Wrapper for executing a command function.
     // returns a function that is used by commander.js parser.
     function handle_exit(e) {
+        console_debug("handle_exit");
         if (e.name === 'ExitStatus') {
             process_exit_now(e.value, e.message)
         }
         throw e;        
     }
     function handle_error(e) {
+        console_debug("handle_error");
         let sts = report_error(e);
-        process.exit(e);
+        process.exit(e.value);
     }
     function do_cmd(...args) {
         let p = do_command(...args)
@@ -201,17 +283,43 @@ function run_command(do_command) {
     return do_cmd;
 }
 
+exports.console_log = console_log
+function console_log(message, value) {
+    // Logs a message to the console using the supplied message and value.
+    // Returns the value for the next handler.
+    if (value === undefined) {
+        value = "";
+    }
+    console.error(message, value);
+    return value;
+}
+
+exports.console_verbose = console_verbose
+function console_verbose(message, value) {
+    // Logs a message to the console using the supplied message and value.
+    // Returns the value for the next handler.
+    if (CONFIG.verbose) {
+        console_log(message, value)
+    }
+    return value;
+}
+
 exports.console_debug = console_debug
 function console_debug(message, value) {
     // If debug mode selected, logs an error to the console using the 
     // supplied message and value.  Returns the value for the next handler.
     if (CONFIG.debug) {
-        if (value === undefined) {
-            value = "";
-        }
-        console.error(message, value);
+        console_log(message, value)
     }
     return value;
+}
+
+exports.console_exit = console_exit
+function console_exit(exitstatus) {
+    if (exitstatus != EXIT_STS.SUCCESS) {
+        console_log("Exit status: ", exitstatus)
+    }
+    return exitstatus
 }
 
 exports.get_auth_token = get_auth_token
@@ -427,6 +535,22 @@ function get_container_content_urls(response, container_ref) {
     return content_uris;
 }
 
+exports.get_annotation_target_uris = get_annotation_target_uris
+function get_annotation_target_uris(response, ann_uri) {
+    // console.log(response.data);
+    console_debug("get_annotation_target_uris: %s", ann_uri);
+    let ann_graph = rdf.graph();
+    rdf.parse(
+        response.data, ann_graph, ann_uri, response.headers["content-type"]
+        );
+    let container_contents = ann_graph.each(
+        rdf.sym(ann_uri),
+        rdf.sym('http://www.w3.org/ns/oa#hasTarget'),
+        undefined);
+    var target_uris = container_contents.map(get_node_URI)
+    return target_uris;
+}
+
 exports.create_resource = create_resource
 function create_resource(container_url, headers, resource_data, auth_params) {
     // Create resource in specified container
@@ -528,6 +652,82 @@ function remove_container(container_url, auth_params) {
         .then(axios  => { ldp_axios = axios })
         .then(()     => recursive_remove(container_url))
    return p;
+}
+
+//@@@@@@@@
+// exports.scan_annotations = scan_annotations
+// function scan_annotations(ann_urls, target_uri, get_auth_params) {
+//     console_debug("scan_annotations: target %s in %s", target_uri, container_url);
+//     let p = get_auth_token(...auth_params)
+//         .then(token    => ldp_request_rdf(token).get(container_uri)) 
+//         .then(response => show_response_status(response))
+//         .then(response => check_status(response))
+//         .then(response => get_container_content_urls(response, container_url))
+//         .then(ann_urls => scan_annotations(container_url, target_uri))
+//    return p;    
+// }
+//@@@@@@@@
+
+// function test_annotation_target(ldp_axios_p, ann_uri, target_uri) {
+//     // Tests if an annotation whose URI is provided targets a given resource
+//     // Returns a promise of the annotation URI if the target is matched,
+//     // otherwise a failure.
+//     let p = ldp_axios_p
+//         .then(ldp_axios   => ldp_axios.get(ann_uri)
+//         .then(response    => get_annotation_target_uris(response, ann_uri))
+//         .then(ann_targets => {
+//             if (ann_targets.includes(target_uri)) {
+//                 return ann_uri;
+//             } else {
+//                 throw new Error('Target '+target_uri+' not matched');
+//             }
+//         })
+//         ;
+//     return p
+// }
+
+exports.find_annotation = find_annotation
+function find_annotation(container_url, target_uri, auth_params) {
+    console_debug("find_annotation: target %s in %s", target_uri, container_url);
+    let ldp_axios_p = get_auth_token(...auth_params)
+        .then(token     => ldp_request_rdf(token))
+    function test_annotation_target(ann_uri, target_uri) {
+        // Returns a function that tests if an annotation whose URI is provided 
+        // targets a given resource.  Returns a promise of the annotation URI if 
+        // the target is matched, otherwise a failure.
+        function p_fn() {
+            return ldp_axios_p
+                .then(ldp_axios   => ldp_axios.get(ann_uri))
+                .then(response    => get_annotation_target_uris(response, ann_uri))
+                .then(ann_targets => {
+                    console_debug("Testing %s", ann_targets);
+                    if (ann_targets.includes(target_uri)) {
+                        console_debug("Matched %s", target_uri)
+                        return ann_uri;
+                    } else {
+                        throw new NotMatchedError('Target '+target_uri+' not matched');
+                    }
+                })
+                .catch(e => Promise.reject(e))
+                ;
+            }
+        return p_fn;
+        }
+    let p = ldp_axios_p
+        .then(ldp_axios => ldp_axios.get(container_url)) 
+        .then(response  => show_response_status(response))
+        .then(response  => check_status(response))
+        .then(response  => get_container_content_urls(response, container_url))
+        .then(urls      => sequence_promises_until_resolved(
+            urls.map(ann_uri => test_annotation_target(ann_uri, target_uri))
+            ))
+        .catch(e => {
+            if (e instanceof NotResolvedError) {
+                throw new NotFoundError("Annotation with target "+target_uri+" not found")
+            }
+            throw e;
+        });
+   return p;    
 }
 
 //  ===================================================================
@@ -714,7 +914,7 @@ function test_response_data_text(response, expect_lit, expect_ref) {
     console_debug("test_response_data_text %s", [expect_lit, expect_ref])
     let p = get_data_sequence(expect_lit, expect_ref, null)
         .then(text => test_data_contains_text(response.data, text))
-        .then(status => { console.error("Exit status: "+status); return status; })
+        .then(status => console_exit(status))
         ;
     return p; 
 }
@@ -763,7 +963,7 @@ function test_response_data_rdf(response, resource_url, expect_lit, expect_ref) 
                 (st => console.error("Statement '%s' not found", st.toString()))
             )
         )
-        .then(status => { console.error("Exit status: "+status); return status; })
+        .then(status => console_exit(status))
         ;
     return p; 
 }
@@ -780,7 +980,7 @@ function test_response_is_container(response, resource_url) {
                 (st => { return; })
             )
         )
-        .then(status => { console.error("Exit status: "+status); return status; })
+        .then(status => console_exit(status))
         ;
     return p; 
 }
@@ -806,7 +1006,7 @@ function test_response_is_annotation(response, resource_url) {
                 (st => { return; })
             )
         )
-        .then(status => { console.error("Exit status: "+status); return status; })
+        .then(status => console_exit(status))
         ;
     return p; 
 }

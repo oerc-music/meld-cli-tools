@@ -3,6 +3,9 @@
 'use strict';
 
 /**
+ *  Command line tool for accessing Automatic Semantic Description (ASD) service
+ *  which provides acess to audio analysis capabilities of Sonic Annotator.
+ *
  *  Try these commands:
  *      node $ASD_TOOL --help
  *      node $ASD_TOOL --debug analyse audiocommons chords jamendo-tracks:214
@@ -34,11 +37,7 @@ function get_resource_ids(data) {
     // Extract resource identifiers from response string data
     let json = JSON.parse(data);
     return json.map(elem => elem["id"])
-
-
 }
-
-
 
 function get_config() {
     // This is a placeholder, obtaining values from command line options.

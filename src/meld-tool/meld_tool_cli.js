@@ -74,6 +74,10 @@ function remove_container(container_url) {
     return meld.remove_container(container_url, get_auth_params())
 }
 
+function find_annotation(container_url, target_uri) {
+    return meld.find_annotation(container_url, target_uri, get_auth_params())
+}
+
 //  ===================================================================
 //
 //  Command line parse and dispatch specification
@@ -203,6 +207,12 @@ program.command("remove-annotation <annotation_url>")
     .action(meld.run_command(do_remove_annotation))
     ;
 
+program.command("find-annotation <container_url> <target>")
+    .alias("fann")
+    .description("Find annotation in container that references a specified target, and write URI to stdout.")
+    .action(meld.run_command(do_find_annotation))
+    ;
+
 program.command("test-login")
     .description("Test login credentials and return access token.")
     .action(meld.run_command(do_test_login))
@@ -318,7 +328,7 @@ function do_list_container(container_uri) {
         .then(response => meld.show_response_status(response))
         .then(response => meld.check_status(response))
         .then(response => meld.show_container_contents(response, container_uri))
-        .catch(error   => meld.report_error(error,  "List container error"))
+        // .catch(error   => meld.report_error(error,  "List container error"))
         .then(response => meld.process_exit(status, "List container OK"))
         ;
     return p;
@@ -335,7 +345,7 @@ function do_make_resource(parent_url, resource_name, content_type, content_ref) 
     let p = meld.get_data_sequence(program.literal, content_ref, content_type)
         .then(data     => create_resource(parent_url, header_data, data))
         .then(location => { console.log(location); return location; })
-        .catch(error   => meld.report_error(error,  "Create resource error"))
+        // .catch(error   => meld.report_error(error,  "Create resource error"))
         .then(location => meld.process_exit(status, "Create resource OK"))
         ;
     return p;
@@ -351,7 +361,7 @@ function do_update_resource(resource_url, content_type, content_ref) {
     let p = meld.get_data_sequence(program.literal, content_ref, content_type)
         .then(data     => update_resource(resource_url, header_data, data))
         .then(location => { console.log(location); return location; })
-        .catch(error   => meld.report_error(error,  "Create resource error"))
+        // .catch(error   => meld.report_error(error,  "Create resource error"))
         .then(location => meld.process_exit(status, "Create resource OK"))
         ;
     return p;
@@ -366,7 +376,7 @@ function do_show_resource(resource_url) {
         .then(response => meld.show_response_status(response))
         .then(response => meld.check_status(response))
         .then(response => meld.show_response_data(response))
-        .catch(error   => meld.report_error(error,  "Show resource error"))
+        // .catch(error   => meld.report_error(error,  "Show resource error"))
         .then(response => meld.process_exit(status, "Show resource OK"))
         ;
     return p;
@@ -381,7 +391,7 @@ function do_show_resource_rdf(resource_url) {
         .then(response => meld.show_response_status(response))
         .then(response => meld.check_status(response))
         .then(response => meld.show_response_data_rdf(response, resource_url))
-        .catch(error   => meld.report_error(error,  "Show resource RDF error"))
+        // .catch(error   => meld.report_error(error,  "Show resource RDF error"))
         .then(response => meld.process_exit(status, "Show resource RDF OK"))
         ;
     return p;
@@ -395,7 +405,7 @@ function do_remove_resource(resource_uri) {
         .then(token    => meld.ldp_request(token).delete(resource_uri))
         .then(response => meld.show_response_status(response))
         .then(response => meld.check_status(response))
-        .catch(error   => meld.report_error(error,  "Remove resource error"))
+        // .catch(error   => meld.report_error(error,  "Remove resource error"))
         .then(response => meld.process_exit(status, "Remove resource OK"))
         ;
     return p;
@@ -410,7 +420,7 @@ function do_show_content_type(resource_url) {
         .then(response => meld.show_response_status(response))
         .then(response => meld.check_status(response))
         .then(response => meld.show_response_content_type(response))
-        .catch(error   => meld.report_error(error,  "Show resource content type error"))
+        // .catch(error   => meld.report_error(error,  "Show resource content type error"))
         .then(response => meld.process_exit(status, "Show resource content type OK"))
         ;
     return p;
@@ -433,7 +443,7 @@ function do_test_text_resource(resource_url, expect_ref) {
         .then(response => 
             meld.test_response_data_text(response, program.literal, expect_ref)
             )
-        .catch(error   => meld.report_error(error,  "Test resource text error"))
+        // .catch(error   => meld.report_error(error,  "Test resource text error"))
         .then(status   => meld.process_exit(status, "Test resource text"))
         ;
     return p;
@@ -457,7 +467,7 @@ function do_test_rdf_resource(resource_ref, expect_ref) {
         .then(response => 
             meld.test_response_data_rdf(response, resource_url, program.literal, expect_ref)
             )
-        .catch(error   => meld.report_error(error,  "Test resource RDF error"))
+        // .catch(error   => meld.report_error(error,  "Test resource RDF error"))
         .then(status   => meld.process_exit(status, "Test resource RDF"))
         ;
     return p;
@@ -495,7 +505,7 @@ function do_make_container(parent_url, coname) {
     console.error('Create container %s in parent %s', coname, parent_url);
     let p = make_empty_container(parent_url, coname, meld.TEMPLATES.co_template)
         .then(location => { console.log(location); return location; })
-        .catch(error   => meld.report_error(error,  "Make container error"))
+        // .catch(error   => meld.report_error(error,  "Make container error"))
         .then(location => meld.process_exit(status, "Make container OK"))
         ;
     return p;
@@ -506,7 +516,7 @@ function do_remove_container(container_url) {
     get_config();
     console.error('Remove container %s and contents', container_url);
     let p = remove_container(container_url)
-        .catch(error   => meld.report_error(error,  "Remove container error"))
+        // .catch(error   => meld.report_error(error,  "Remove container error"))
         .then(()       => meld.process_exit(status, "Remove container OK"))
         ;
     return p;
@@ -518,7 +528,7 @@ function do_make_annotation_container(parent_url, acname) {
     console.error('Create annotation container %s in parent %s', acname, parent_url);
     let p = make_empty_container(parent_url, acname, meld.TEMPLATES.ac_template)
         .then(location => { console.log(location); return location; })
-        .catch(error   => meld.report_error(error,  "Make annotation container error"))
+        // .catch(error   => meld.report_error(error,  "Make annotation container error"))
         .then(location => meld.process_exit(status, "Make annotation container OK"))
         ;
     return p;
@@ -534,7 +544,7 @@ function do_show_annotation_container(container_uri) {
         .then(response => meld.show_response_status(response))
         .then(response => meld.check_status(response))
         .then(response => meld.show_container_contents(response, container_uri))
-        .catch(error   => meld.report_error(error,  "Show annotation container error"))
+        // .catch(error   => meld.report_error(error,  "Show annotation container error"))
         .then(response => meld.process_exit(status, "Show annotation container OK"))
         ;
     return p;
@@ -569,7 +579,7 @@ function do_add_annotation(container_url, target_ref, body_ref, motivation_ref) 
     }
     let p = create_resource(container_url, header_data, annotation_data)
         .then(location => { console.log(location); return location; })
-        .catch(error   => meld.report_error(error,  "Add annotation error"))
+        // .catch(error   => meld.report_error(error,  "Add annotation error"))
         .then(location => meld.process_exit(status, "Add annotation OK"))
         ;
     return p;
@@ -619,7 +629,7 @@ function do_make_annotation(container_url, target_ref, body_ref, motivation_ref)
         .then(body_data => meld.TEMPLATES.prefixes + annotation_body + body_data)
         .then(ann_data  => create_resource(container_url, header_data, ann_data))
         .then(location  => { console.log(location); return location; })
-        .catch(error    => meld.report_error(error,  "Make annotation error"))
+        // .catch(error    => meld.report_error(error,  "Make annotation error"))
         .then(location  => meld.process_exit(status, "Make annotation OK"))
         ;
     return p;
@@ -661,7 +671,7 @@ function do_show_annotation_rdf(annotation_url) {
         .then(response => meld.show_response_status(response))
         .then(response => meld.check_status(response))
         .then(response => meld.show_response_data_rdf(response, annotation_url))
-        .catch(error   => meld.report_error(error,  "Show annotation RDF error"))
+        // .catch(error   => meld.report_error(error,  "Show annotation RDF error"))
         .then(response => meld.process_exit(status, "Show annotation RDF OK"))
         ;
     return p;
@@ -676,8 +686,35 @@ function do_remove_annotation(annotation_uri) {
         .then(token    => meld.ldp_request(token).delete(annotation_uri))
         .then(response => meld.show_response_status(response))
         .then(response => meld.check_status(response))
-        .catch(error   => meld.report_error(error,  "Remove annotation error"))
         .then(response => meld.process_exit(status, "Remove annotation OK"))
+        // .catch(error   => meld.report_error(error,  "Remove annotation error"))
+        ;
+    return p;
+}
+
+function do_find_annotation(container_url, target_ref) {
+    let status = meld.EXIT_STS.SUCCESS;
+    let msg    = "Find annotation OK";
+    get_config();
+    let target_uri = meld.get_data_url(target_ref);
+    console.error(
+        'Find annotation targeting %s in container %s', 
+        target_uri, container_url
+        );
+    let p = find_annotation(container_url, target_uri, get_auth_params())
+        .then(location => { console.log(location); return location; })
+        .catch(e => {
+            if (e instanceof meld.NotFoundError) {
+                status = meld.EXIT_STS.NOT_FOUND;
+                msg    = "Annotation target "+target_uri+" not found";
+                meld.console_debug("status: %s", status);
+                meld.console_debug("msg:    %s", msg);
+                meld.process_exit(status, msg);
+            }
+            throw e;
+        })
+        .then(location => meld.process_exit(status, msg))
+        // .catch(error   => meld.report_error(error,  "Find annotation error"))
         ;
     return p;
 }
