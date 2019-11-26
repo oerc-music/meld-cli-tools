@@ -74,8 +74,8 @@ function remove_container(container_url) {
     return meld.remove_container(container_url, get_auth_params())
 }
 
-function find_annotation(container_url, target_uri) {
-    return meld.find_annotation(container_url, target_uri, get_auth_params())
+function find_annotation(container_url, target_uri, body_uri) {
+    return meld.find_annotation(container_url, target_uri, body_uri, get_auth_params())
 }
 
 //  ===================================================================
@@ -207,9 +207,9 @@ program.command("remove-annotation <annotation_url>")
     .action(meld.run_command(do_remove_annotation))
     ;
 
-program.command("find-annotation <container_url> <target>")
+program.command("find-annotation <container_url> <target> [body]")
     .alias("fann")
-    .description("Find annotation in container that references a specified target, and write URI to stdout.")
+    .description("Find annotation in container that references a specified target and optonally specified body, and write URI to stdout.")
     .action(meld.run_command(do_find_annotation))
     ;
 
@@ -692,16 +692,20 @@ function do_remove_annotation(annotation_uri) {
     return p;
 }
 
-function do_find_annotation(container_url, target_ref) {
+function do_find_annotation(container_url, target_ref, body_ref) {
     let status = meld.EXIT_STS.SUCCESS;
     let msg    = "Find annotation OK";
     get_config();
     let target_uri = meld.get_data_url(target_ref);
-    console.error(
-        'Find annotation targeting %s in container %s', 
-        target_uri, container_url
-        );
-    let p = find_annotation(container_url, target_uri, get_auth_params())
+    let body_uri   = body_ref
+         ? meld.get_data_url(body_ref)
+         : null ;
+    msg = 
+        "Find annotation targeting "+target_uri+
+        (body_uri ? " with body "+body_uri : "")+
+        " in container "+container_url;
+    console.error(msg);
+    let p = find_annotation(container_url, target_uri, body_uri)
         .then(location => { console.log(location); return location; })
         .catch(e => {
             if (e instanceof meld.NotFoundError) {

@@ -288,6 +288,7 @@ function console_log(message, value) {
     // Logs a message to the console using the supplied message and value.
     // Returns the value for the next handler.
     if (value === undefined) {
+        value = "@undef@";
         value = "";
     }
     console.error(message, value);
@@ -532,23 +533,29 @@ function get_container_content_urls(response, container_ref) {
         rdf.sym('http://www.w3.org/ns/ldp#contains'),
         undefined);
     var content_uris = container_contents.map(get_node_URI)
+    // console_debug("get_container_content_urls: %s", content_uris);
     return content_uris;
 }
 
-exports.get_annotation_target_uris = get_annotation_target_uris
-function get_annotation_target_uris(response, ann_uri) {
+exports.get_annotation_target_body_uris = get_annotation_target_body_uris
+function get_annotation_target_body_uris(response, ann_uri) {
     // console.log(response.data);
-    console_debug("get_annotation_target_uris: %s", ann_uri);
+    console_debug("get_annotation_target_body_uris: %s", ann_uri);
     let ann_graph = rdf.graph();
     rdf.parse(
         response.data, ann_graph, ann_uri, response.headers["content-type"]
         );
-    let container_contents = ann_graph.each(
+    let ann_targets = ann_graph.each(
         rdf.sym(ann_uri),
         rdf.sym('http://www.w3.org/ns/oa#hasTarget'),
         undefined);
-    var target_uris = container_contents.map(get_node_URI)
-    return target_uris;
+    let ann_bodies = ann_graph.each(
+        rdf.sym(ann_uri),
+        rdf.sym('http://www.w3.org/ns/oa#hasBody'),
+        undefined);
+    var target_uris = ann_targets.map(get_node_URI)
+    var body_uris   = ann_bodies.map(get_node_URI);
+    return [target_uris, body_uris];
 }
 
 exports.create_resource = create_resource
@@ -654,58 +661,42 @@ function remove_container(container_url, auth_params) {
    return p;
 }
 
-//@@@@@@@@
-// exports.scan_annotations = scan_annotations
-// function scan_annotations(ann_urls, target_uri, get_auth_params) {
-//     console_debug("scan_annotations: target %s in %s", target_uri, container_url);
-//     let p = get_auth_token(...auth_params)
-//         .then(token    => ldp_request_rdf(token).get(container_uri)) 
-//         .then(response => show_response_status(response))
-//         .then(response => check_status(response))
-//         .then(response => get_container_content_urls(response, container_url))
-//         .then(ann_urls => scan_annotations(container_url, target_uri))
-//    return p;    
-// }
-//@@@@@@@@
-
-// function test_annotation_target(ldp_axios_p, ann_uri, target_uri) {
-//     // Tests if an annotation whose URI is provided targets a given resource
-//     // Returns a promise of the annotation URI if the target is matched,
-//     // otherwise a failure.
-//     let p = ldp_axios_p
-//         .then(ldp_axios   => ldp_axios.get(ann_uri)
-//         .then(response    => get_annotation_target_uris(response, ann_uri))
-//         .then(ann_targets => {
-//             if (ann_targets.includes(target_uri)) {
-//                 return ann_uri;
-//             } else {
-//                 throw new Error('Target '+target_uri+' not matched');
-//             }
-//         })
-//         ;
-//     return p
-// }
-
 exports.find_annotation = find_annotation
-function find_annotation(container_url, target_uri, auth_params) {
-    console_debug("find_annotation: target %s in %s", target_uri, container_url);
+function find_annotation(container_url, target_uri, body_uri, auth_params) {
+    console_debug("find_annotation: target "+target_uri+" in "+container_url);
     let ldp_axios_p = get_auth_token(...auth_params)
-        .then(token     => ldp_request_rdf(token))
-    function test_annotation_target(ann_uri, target_uri) {
+        .then(token => ldp_request_rdf(token))
+    function test_annotation_target(ann_uri, target_uri, body_uri) {
         // Returns a function that tests if an annotation whose URI is provided 
         // targets a given resource.  Returns a promise of the annotation URI if 
         // the target is matched, otherwise a failure.
+        // console_debug(
+        //     "test_annotation_target ann_uri: "+ann_uri+
+        //     ", target_uri: "+target_uri+
+        //     ", body_uri: "+body_uri
+        //     );
         function p_fn() {
+            console_debug(
+                "find_annotaton.test_annotation_target ann_uri: "+ann_uri+
+                ", target_uri: "+target_uri+
+                ", body_uri: "+body_uri
+                );
             return ldp_axios_p
-                .then(ldp_axios   => ldp_axios.get(ann_uri))
-                .then(response    => get_annotation_target_uris(response, ann_uri))
-                .then(ann_targets => {
-                    console_debug("Testing %s", ann_targets);
-                    if (ann_targets.includes(target_uri)) {
-                        console_debug("Matched %s", target_uri)
-                        return ann_uri;
-                    } else {
+                .then(ldp_axios => ldp_axios.get(ann_uri))
+                .then(response  => get_annotation_target_body_uris(response, ann_uri))
+                .then(ann_targets_bodies => {
+                    // console_debug("Testing1 %s", ann_targets_bodies);
+                    let [ann_targets, ann_bodies] = ann_targets_bodies;
+                    // console_debug("Testing2 %s", ann_targets);
+                    // console_debug("Testing3 %s", ann_bodies);
+                    if (!ann_targets.includes(target_uri)) {
                         throw new NotMatchedError('Target '+target_uri+' not matched');
+                    } else {
+                        console_debug("Matched target %s", target_uri)
+                        if (body_uri && !ann_bodies.includes(body_uri)) {
+                            throw new NotMatchedError('Body '+body_uri+' not matched');
+                        }
+                        return ann_uri;
                     }
                 })
                 .catch(e => Promise.reject(e))
@@ -719,12 +710,22 @@ function find_annotation(container_url, target_uri, auth_params) {
         .then(response  => check_status(response))
         .then(response  => get_container_content_urls(response, container_url))
         .then(urls      => sequence_promises_until_resolved(
-            urls.map(ann_uri => test_annotation_target(ann_uri, target_uri))
+            urls.map(ann_uri => test_annotation_target(ann_uri, target_uri, body_uri))
             ))
         .catch(e => {
             if (e instanceof NotResolvedError) {
-                throw new NotFoundError("Annotation with target "+target_uri+" not found")
+                // Not matched for any annotation in container
+                // NotResolvedError thrown by `sequence_promises_until_resolved`
+                let msg = body_uri
+                    ? "target "+target_uri+" and body "+body_uri
+                    : "target "+target_uri
+                    ;
+                throw new NotFoundError("Annotation with "+msg+" not found")
             }
+            // else if  (e instanceof NotResolvedError) {
+            //     console_log("find_annotation: uncaught exception: "+e)
+            //     console_log(e.stack)
+            // }
             throw e;
         });
    return p;    
