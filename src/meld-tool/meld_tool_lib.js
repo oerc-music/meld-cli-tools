@@ -242,6 +242,7 @@ function process_exit(exitstatus, exitmessage) {
     let err = new Error(exitmessage);
     err.name  = 'ExitStatus';
     err.value = exitstatus;
+    console_debug("process_exit: %s", err);    
     throw err;
 }
 
@@ -266,13 +267,18 @@ function run_command(do_command) {
         console_debug("handle_exit");
         if (e.name === 'ExitStatus') {
             process_exit_now(e.value, e.message)
+        throw e;
         }
-        throw e;        
     }
     function handle_error(e) {
         console_debug("handle_error");
-        let sts = report_error(e);
-        process.exit(e.value);
+        console_debug(e.stack);
+        try {
+            report_error(e);
+        }
+        catch (exit_err) {
+            handle_exit(exit_err);
+        }
     }
     function do_cmd(...args) {
         let p = do_command(...args)
@@ -745,7 +751,7 @@ function report_error(error, exit_msg) {
         // Request errors:
         // Short summary for common cases
         console.error(error.response.status+": "+error.response.statusText);
-        if ( error.response.status == 404 ) {
+        if ( error.response.status === 404 ) {
             status = EXIT_STS.NOT_FOUND;
         } else if ( [401,402,403].includes(error.response.status) ) {
             status = EXIT_STS.PERMISSION;
@@ -760,8 +766,8 @@ function report_error(error, exit_msg) {
             console.error(error.request._header);
             console.error("Response header fields:");
             console.error(error.response.headers);
+            status = EXIT_STS.HTTP_ERR;
             }
-        status = EXIT_STS.HTTP_ERR;
     } else {
         // General error: print name and message
         console.error(error.name+": "+error.message);

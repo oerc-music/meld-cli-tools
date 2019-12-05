@@ -2,6 +2,7 @@
 
 ## TODO
 
+- [x] catch error when referenced resource returns HTTP 404
 - [x] environment variables for credentials
 - [x] finish off "make-workset" implementation
 - [x] revisit "show-container" implementation

@@ -213,6 +213,12 @@ program.command("find-annotation <container_url> <target> [body]")
     .action(meld.run_command(do_find_annotation))
     ;
 
+// program.command("find-annotation-body <container_url> <target> [body]")
+//     .alias("fbod")
+//     .description("Find annotation body in container that references a specified target and whose body has a specified property value.  Output the annotaton URI.")
+//     .action(meld.run_command(do_find_annotation))
+//     ;
+
 program.command("test-login")
     .description("Test login credentials and return access token.")
     .action(meld.run_command(do_test_login))
@@ -505,7 +511,7 @@ function do_make_container(parent_url, coname) {
     console.error('Create container %s in parent %s', coname, parent_url);
     let p = make_empty_container(parent_url, coname, meld.TEMPLATES.co_template)
         .then(location => { console.log(location); return location; })
-        // .catch(error   => meld.report_error(error,  "Make container error"))
+        .catch(error   => meld.report_error(error,  "Make container error"))
         .then(location => meld.process_exit(status, "Make container OK"))
         ;
     return p;
@@ -516,7 +522,7 @@ function do_remove_container(container_url) {
     get_config();
     console.error('Remove container %s and contents', container_url);
     let p = remove_container(container_url)
-        // .catch(error   => meld.report_error(error,  "Remove container error"))
+        .catch(error   => meld.report_error(error,  "Remove container error"))
         .then(()       => meld.process_exit(status, "Remove container OK"))
         ;
     return p;
