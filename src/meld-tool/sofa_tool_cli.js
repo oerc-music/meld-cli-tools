@@ -225,6 +225,25 @@ function do_add_fragment(workset_url, fragment_ref, fragment_name) {
     return p;
 }
 
+// sequenceP: execute Promises sequentially.
+//
+// See: https://stackoverflow.com/a/41115086
+//
+// @param {funcs} An array of funcs that return promises.
+//
+// @example
+// const urls = ['/url1', '/url2', '/url3']
+// sequenceP(urls.map(url => () => $.ajax(url)))
+//     .then(r => console.log(r))
+
+function sequenceP(promisefuncs) {
+   return (promisefuncs.reduce((promise, func) =>
+               promise.then(result => func().then(Array.prototype.concat.bind(result))),
+               Promise.resolve([])
+               )
+          );
+}
+
 function get_frag_from_fragref(fragref_uri, request_cxt) {
     let p = request_cxt
         .then(cxt => cxt.get(fragref_uri))
@@ -253,8 +272,9 @@ function do_merge_workset(target_workset_uri, src_workset_uri) {
         .then(response => meld.check_status(response))
         .then(response => {
             let cont_uris = meld.get_container_content_urls(response, target_workset_uri)
-            let frag_ps = cont_uris.map(fragref => get_frag_from_fragref(fragref, request_cxt))
-            let ps = Promise.all(frag_ps)
+            let frag_ps = cont_uris.map(fragref =>
+                               () => get_frag_from_fragref(fragref, request_cxt))
+            let ps = sequenceP(frag_ps)
             return ps;
           })
         .then(r=> {console.error('target:', r); return r})
@@ -271,7 +291,8 @@ function do_merge_workset(target_workset_uri, src_workset_uri) {
 
     let p = Promise.all([target_frags_p, src_fragref_p, request_cxt])
         .then(([tfrags, src_fragrefs, cxt]) => {
-            let ps = src_fragrefs.map(fragref => get_frag_from_fragref(fragref, request_cxt)
+            let ps = src_fragrefs.map(fragref =>
+                 () => get_frag_from_fragref(fragref, request_cxt)
                  .then(frag => {
                      if (tfrags.includes(frag)) {
                           console.error('Already in target:', frag)
@@ -279,14 +300,14 @@ function do_merge_workset(target_workset_uri, src_workset_uri) {
                           return null;
                      } else {
                           console.error('Not in target:', frag)
-                          let p = do_add_fragment(target_workset_uri, frag, "FragRef")
+                          let p = add_fragment_to_ws(target_workset_uri, frag, "FragRef")
                               .then(loc => {console.error("Adding %s as FragRef %s",
                                                 frag, loc);
                                             return loc;
                                     })
                      }
                  }))
-            let p = Promise.all(ps)
+            let p = sequenceP(ps)
             return p;
          })
 
