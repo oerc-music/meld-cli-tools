@@ -169,7 +169,7 @@ or
 
 (These commands suspend certificate checking by the solid server, and should not be used in production.  They are needed because the Solid server uses HTTP transactions internally for some operations.)
 
-NOTE: althrough the server may be running at this point, you will still need to set up the needed LDP containmer structures. See below for details.
+NOTE: althrough the server may be running at this point, you will still need to set up the needed LDP container structures. See below for details.
 
 
 ## Run as a basic LDP server (without authentication)

@@ -264,11 +264,12 @@ function run_command(do_command) {
     // Wrapper for executing a command function.
     // returns a function that is used by commander.js parser.
     function handle_exit(e) {
-        console_debug("handle_exit");
+        console_debug("handle_exit ("+e.name+")");
         if (e.name === 'ExitStatus') {
+            console_debug("ExitStatus: "+e.value+" ("+e.message+")");
             process_exit_now(e.value, e.message)
-        throw e;
         }
+        throw e;
     }
     function handle_error(e) {
         console_debug("handle_error");
